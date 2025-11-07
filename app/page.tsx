@@ -16,7 +16,24 @@ export default function Home() {
           Real-Time Odds Intelligence
         </p>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
+          {/* Opportunities Card */}
+          <Link 
+            href="/opportunities"
+            className="group relative overflow-hidden rounded-xl border-2 border-primary bg-primary/5 p-8 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/30"
+          >
+            <div className="text-6xl mb-4">🎯</div>
+            <h2 className="text-2xl font-bold mb-2 text-primary">Opportunities</h2>
+            <p className="text-sm text-muted-foreground mb-4">Edge Detection</p>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary text-sm font-semibold">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+              </span>
+              I2 Live
+            </div>
+          </Link>
+
           {/* NBA Card */}
           <Link 
             href="/odds/basketball_nba"
