@@ -4,8 +4,18 @@ import { useState, useEffect } from 'react';
 import { Header } from '@/components/layout/Header';
 import { fetchCurrentOdds, fetchEvents } from '@/lib/api';
 import { formatAmericanOdds, formatTime, americanToDecimal, americanToImpliedProbability } from '@/lib/utils';
-import { Loader2, AlertCircle, Info } from 'lucide-react';
+import { Loader2, AlertCircle, Info, Search, Filter, Clock } from 'lucide-react';
 import type { RawOdds, Event } from '@/types';
+
+interface RequestLog {
+  id: number;
+  timestamp: Date;
+  type: 'events' | 'odds';
+  status: 'success' | 'error';
+  duration: number;
+  count?: number;
+  error?: string;
+}
 
 export default function RawOddsDebugPage() {
   const [rawOdds, setRawOdds] = useState<RawOdds[]>([]);
@@ -14,17 +24,47 @@ export default function RawOddsDebugPage() {
   const [error, setError] = useState<string | null>(null);
   const [sport, setSport] = useState('basketball_nba');
   const [autoRefresh, setAutoRefresh] = useState(true);
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMarket, setSelectedMarket] = useState<string>('all');
+  const [selectedBook, setSelectedBook] = useState<string>('all');
+  
+  // Request tracker
+  const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
+  const [showRequestTracker, setShowRequestTracker] = useState(false);
+  
+  const addRequestLog = (type: 'events' | 'odds', status: 'success' | 'error', duration: number, count?: number, error?: string) => {
+    setRequestLogs(prev => [{
+      id: Date.now(),
+      timestamp: new Date(),
+      type,
+      status,
+      duration,
+      count,
+      error
+    }, ...prev].slice(0, 50)); // Keep last 50 requests
+  };
 
   useEffect(() => {
     async function loadData() {
+      const startTime = Date.now();
+      
       try {
         setLoading(true);
         setError(null);
 
-        const [eventsData, oddsData] = await Promise.all([
-          fetchEvents(sport),
-          fetchCurrentOdds({ sport, limit: 100 })
-        ]);
+        // Fetch events
+        const eventsStartTime = Date.now();
+        const eventsData = await fetchEvents(sport);
+        const eventsDuration = Date.now() - eventsStartTime;
+        addRequestLog('events', 'success', eventsDuration, eventsData.length);
+
+        // Fetch odds
+        const oddsStartTime = Date.now();
+        const oddsData = await fetchCurrentOdds({ sport, limit: 1000 });
+        const oddsDuration = Date.now() - oddsStartTime;
+        addRequestLog('odds', 'success', oddsDuration, oddsData.length);
 
         const eventsMap = new Map<string, Event>();
         eventsData.forEach((event: Event) => {
@@ -34,7 +74,10 @@ export default function RawOddsDebugPage() {
         setEvents(eventsMap);
         setRawOdds(oddsData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
+        const duration = Date.now() - startTime;
+        const errorMsg = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMsg);
+        addRequestLog('odds', 'error', duration, 0, errorMsg);
       } finally {
         setLoading(false);
       }
@@ -48,6 +91,38 @@ export default function RawOddsDebugPage() {
       return () => clearInterval(interval);
     }
   }, [sport, autoRefresh]);
+  
+  // Filter odds
+  const filteredOdds = rawOdds.filter(odd => {
+    // Search filter
+    if (searchQuery) {
+      const event = events.get(odd.event_id);
+      const query = searchQuery.toLowerCase();
+      const matchesTeam = event?.home_team?.toLowerCase().includes(query) || 
+                         event?.away_team?.toLowerCase().includes(query);
+      const matchesBook = odd.book_key.toLowerCase().includes(query);
+      const matchesOutcome = odd.outcome_name.toLowerCase().includes(query);
+      if (!matchesTeam && !matchesBook && !matchesOutcome) {
+        return false;
+      }
+    }
+    
+    // Market filter
+    if (selectedMarket !== 'all' && odd.market_key !== selectedMarket) {
+      return false;
+    }
+    
+    // Book filter
+    if (selectedBook !== 'all' && odd.book_key !== selectedBook) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // Get unique markets and books
+  const uniqueMarkets = Array.from(new Set(rawOdds.map(odd => odd.market_key))).sort();
+  const uniqueBooks = Array.from(new Set(rawOdds.map(odd => odd.book_key))).sort();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -70,35 +145,137 @@ export default function RawOddsDebugPage() {
         </div>
 
         {/* Controls */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mr-2">Sport:</label>
-              <select 
-                value={sport} 
-                onChange={(e) => setSport(e.target.value)}
-                className="px-3 py-1.5 bg-card border border-border rounded-md text-sm"
+        <div className="mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mr-2">Sport:</label>
+                <select 
+                  value={sport} 
+                  onChange={(e) => setSport(e.target.value)}
+                  className="px-3 py-1.5 bg-card border border-border rounded-md text-sm"
+                >
+                  <option value="basketball_nba">NBA</option>
+                  <option value="basketball_ncaab">NCAAB</option>
+                  <option value="americanfootball_nfl">NFL</option>
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input 
+                  type="checkbox" 
+                  checked={autoRefresh} 
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                Auto-refresh (10s)
+              </label>
+              
+              <button
+                onClick={() => setShowRequestTracker(!showRequestTracker)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-accent transition-colors"
               >
-                <option value="basketball_nba">NBA</option>
-                <option value="basketball_ncaab">NCAAB</option>
-                <option value="americanfootball_nfl">NFL</option>
-              </select>
+                <Clock className="w-4 h-4" />
+                Request Tracker ({requestLogs.length})
+              </button>
             </div>
 
-            <label className="flex items-center gap-2 text-sm">
-              <input 
-                type="checkbox" 
-                checked={autoRefresh} 
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="w-4 h-4"
+            <div className="text-sm text-muted-foreground">
+              Showing <span className="font-semibold text-foreground">{filteredOdds.length}</span> of <span className="font-semibold text-foreground">{rawOdds.length}</span> raw odds
+            </div>
+          </div>
+          
+          {/* Filters & Search */}
+          <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-lg">
+            <div className="flex items-center gap-2 flex-1">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search teams, books, or outcomes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 px-3 py-1.5 bg-background border border-border rounded-md text-sm"
               />
-              Auto-refresh (10s)
-            </label>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <select
+                value={selectedMarket}
+                onChange={(e) => setSelectedMarket(e.target.value)}
+                className="px-3 py-1.5 bg-background border border-border rounded-md text-sm min-w-[120px]"
+              >
+                <option value="all">All Markets</option>
+                {uniqueMarkets.map(market => (
+                  <option key={market} value={market}>{market}</option>
+                ))}
+              </select>
+              
+              <select
+                value={selectedBook}
+                onChange={(e) => setSelectedBook(e.target.value)}
+                className="px-3 py-1.5 bg-background border border-border rounded-md text-sm min-w-[120px]"
+              >
+                <option value="all">All Books</option>
+                {uniqueBooks.map(book => (
+                  <option key={book} value={book}>{book}</option>
+                ))}
+              </select>
+              
+              {(searchQuery || selectedMarket !== 'all' || selectedBook !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedMarket('all');
+                    setSelectedBook('all');
+                  }}
+                  className="px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
-
-          <div className="text-sm text-muted-foreground">
-            Total: <span className="font-semibold text-foreground">{rawOdds.length}</span> raw odds
-          </div>
+          
+          {/* Request Tracker */}
+          {showRequestTracker && (
+            <div className="p-4 bg-card border border-border rounded-lg">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Request History
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {requestLogs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No requests yet</p>
+                ) : (
+                  requestLogs.map(log => (
+                    <div 
+                      key={log.id}
+                      className={`flex items-center justify-between text-xs p-2 rounded ${
+                        log.status === 'success' ? 'bg-green-500/10' : 'bg-destructive/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-0.5 rounded font-mono ${
+                          log.status === 'success' ? 'bg-green-500/20 text-green-400' : 'bg-destructive/20 text-destructive'
+                        }`}>
+                          {log.status.toUpperCase()}
+                        </span>
+                        <span className="text-muted-foreground">{log.type}</span>
+                        {log.count !== undefined && (
+                          <span className="text-muted-foreground">({log.count} items)</span>
+                        )}
+                        <span className="text-muted-foreground">{log.duration}ms</span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {log.timestamp.toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
@@ -137,7 +314,7 @@ export default function RawOddsDebugPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rawOdds.map((odd, idx) => {
+                  {filteredOdds.map((odd, idx) => {
                     const event = events.get(odd.event_id);
                     const decimal = americanToDecimal(odd.price);
                     const implied = americanToImpliedProbability(odd.price);
@@ -194,6 +371,25 @@ export default function RawOddsDebugPage() {
           <div className="flex flex-col items-center justify-center h-96">
             <p className="text-lg font-medium">No Raw Odds Found</p>
             <p className="text-sm text-muted-foreground mt-2">No data available for {sport}</p>
+          </div>
+        )}
+        
+        {/* Filtered Empty State */}
+        {!loading && !error && rawOdds.length > 0 && filteredOdds.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-96">
+            <Search className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium">No Matching Odds</p>
+            <p className="text-sm text-muted-foreground mt-2">Try adjusting your filters or search query</p>
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedMarket('all');
+                setSelectedBook('all');
+              }}
+              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Clear Filters
+            </button>
           </div>
         )}
       </main>
