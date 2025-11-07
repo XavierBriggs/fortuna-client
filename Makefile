@@ -36,3 +36,4 @@ docker-run: ## Run Docker container
 		-e NEXT_PUBLIC_API_URL=http://host.docker.internal:8081 \
 		fortuna-client:latest
 
+

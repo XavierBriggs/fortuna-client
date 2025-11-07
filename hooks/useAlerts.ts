@@ -73,3 +73,4 @@ export function useAlerts(options: AlertOptions = {}) {
   }, [odds, minEdge, maxDataAge, enableInApp, enableSlack, enableBrowser, addAlert]);
 }
 
+
