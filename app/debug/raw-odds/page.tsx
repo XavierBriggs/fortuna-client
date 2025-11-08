@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Header } from '@/components/layout/Header';
+import Navbar from '@/components/layout/Navbar';
 import { fetchCurrentOdds, fetchEvents } from '@/lib/api';
 import { formatAmericanOdds, formatTime, americanToDecimal, americanToImpliedProbability } from '@/lib/utils';
 import { Loader2, AlertCircle, Info, Search, Filter, Clock } from 'lucide-react';
@@ -126,7 +126,7 @@ export default function RawOddsDebugPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
+      <Navbar />
       
       <main className="container mx-auto px-4 py-6">
         {/* Debug Info Banner */}

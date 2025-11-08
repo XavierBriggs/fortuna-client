@@ -1,6 +1,6 @@
 'use client';
 
-import { Header } from '@/components/layout/Header';
+import Navbar from '@/components/layout/Navbar';
 import { FilterBar } from '@/components/layout/FilterBar';
 import { OddsTable } from '@/components/odds-table/OddsTable';
 import { TopEdgesSidebar } from '@/components/layout/TopEdgesSidebar';
@@ -30,7 +30,7 @@ export default function OddsPage() {
   
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Navbar />
       <FilterBar />
       
       <div className="container px-4 py-6">

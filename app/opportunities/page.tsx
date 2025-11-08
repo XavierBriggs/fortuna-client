@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Opportunity, OpportunityType } from '@/types/opportunity';
 import { getOpportunities, createOpportunityAction } from '@/lib/api-opportunities';
 import { Activity, TrendingUp, Target, Zap, Filter, RefreshCw } from 'lucide-react';
+import Navbar from '@/components/layout/Navbar';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -101,8 +102,10 @@ export default function OpportunitiesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <Navbar />
+
+      <div className="max-w-7xl mx-auto p-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -231,7 +234,14 @@ export default function OpportunitiesPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-sm font-mono">{opp.event_id.substring(0, 20)}...</div>
+                          <div className="text-sm font-semibold">
+                            {opp.event_name || `${opp.event_id.substring(0, 12)}...`}
+                          </div>
+                          {opp.event_name && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {opp.sport_key}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-medium">{opp.market_key}</span>

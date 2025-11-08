@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { Activity } from 'lucide-react';
+import Navbar from '@/components/layout/Navbar';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gradient-to-br from-background via-background to-card">
+    <>
+      <Navbar />
+      <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gradient-to-br from-background via-background to-card">
       <div className="z-10 max-w-5xl w-full items-center justify-center text-center">
         <div className="flex items-center justify-center gap-3 mb-8">
           <Activity className="h-16 w-16 text-primary" />
@@ -79,6 +82,7 @@ export default function Home() {
         </div>
       </div>
     </main>
+    </>
   );
 }
 

@@ -20,6 +20,9 @@ export interface Opportunity {
   detected_at: string;
   data_age_seconds: number;
   legs: OpportunityLeg[];
+  event_name?: string;
+  home_team?: string;
+  away_team?: string;
 }
 
 export interface OpportunityAction {
