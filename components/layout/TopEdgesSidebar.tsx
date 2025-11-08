@@ -36,10 +36,11 @@ export function TopEdgesSidebar() {
           <div className="space-y-3">
             {topEdges.map((odd, index) => {
               const dataAge = getDataAgeSeconds(odd);
+              const pointPart = odd.point !== null ? `-${odd.point}` : '';
               
               return (
                 <div
-                  key={`${odd.event_id}-${odd.book_key}-${odd.outcome_name}`}
+                  key={`${odd.event_id}-${odd.market_key}-${odd.book_key}-${odd.outcome_name}${pointPart}`}
                   className="p-3 rounded-md border border-border hover:border-primary bg-background hover:bg-accent/50 transition-all cursor-pointer"
                 >
                   {/* Rank and Edge */}

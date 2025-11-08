@@ -210,7 +210,8 @@ export const useOddsStore = create<OddsState>((set, get) => ({
 
 // Helper function to generate unique key for odds
 function generateOddsKey(odds: NormalizedOdds): string {
-  return `${odds.event_id}-${odds.market_key}-${odds.book_key}-${odds.outcome_name}`;
+  const pointPart = odds.point !== null ? `-${odds.point}` : '';
+  return `${odds.event_id}-${odds.market_key}-${odds.book_key}-${odds.outcome_name}${pointPart}`;
 }
 
 // Selector hooks for convenience

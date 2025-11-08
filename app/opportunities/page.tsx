@@ -36,7 +36,39 @@ export default function OpportunitiesPage() {
       // Filter by min edge on client side
       const filtered = data.filter(opp => opp.edge_pct >= minEdge);
       
-      setOpportunities(filtered);
+      // Deduplicate opportunities based on key characteristics
+      const deduplicated = filtered.reduce((acc, opp) => {
+        // Create a unique key based on event, market, legs, and edge
+        const legsKey = opp.legs
+          .map(leg => `${leg.book_key}-${leg.outcome_name}-${leg.price}`)
+          .sort()
+          .join('|');
+        const uniqueKey = `${opp.event_id}-${opp.market_key}-${opp.edge_pct.toFixed(2)}-${legsKey}`;
+        
+        // Only keep the first occurrence (with lowest ID, assuming older is more relevant)
+        const existing = acc.find(o => {
+          const existingLegsKey = o.legs
+            .map(leg => `${leg.book_key}-${leg.outcome_name}-${leg.price}`)
+            .sort()
+            .join('|');
+          const existingKey = `${o.event_id}-${o.market_key}-${o.edge_pct.toFixed(2)}-${existingLegsKey}`;
+          return existingKey === uniqueKey;
+        });
+        
+        if (!existing) {
+          acc.push(opp);
+        } else {
+          console.log(`[Opportunities] Filtered duplicate: ID ${opp.id} (keeping ID ${existing.id})`);
+        }
+        
+        return acc;
+      }, [] as Opportunity[]);
+      
+      setOpportunities(deduplicated);
+      
+      if (deduplicated.length < filtered.length) {
+        console.log(`[Opportunities] Removed ${filtered.length - deduplicated.length} duplicates`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load opportunities');
     } finally {

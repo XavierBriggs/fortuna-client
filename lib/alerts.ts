@@ -5,7 +5,7 @@ import { getDataAgeSeconds, formatAmericanOdds, formatPoint } from '@/lib/utils'
 const alertedOdds = new Set<string>();
 
 function generateAlertKey(odds: NormalizedOdds): string {
-  return `${odds.event_id}-${odds.book_key}-${odds.outcome_name}-${odds.point || 'null'}`;
+  return `${odds.event_id}-${odds.market_key}-${odds.book_key}-${odds.outcome_name}-${odds.point || 'null'}`;
 }
 
 export function shouldAlert(odds: NormalizedOdds, minEdge: number = 0, maxDataAge: number = 10): boolean {
