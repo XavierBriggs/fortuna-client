@@ -5,11 +5,14 @@ import { Opportunity, OpportunityType } from '@/types/opportunity';
 import { getOpportunities, createOpportunityAction } from '@/lib/api-opportunities';
 import { Activity, TrendingUp, Target, Zap, Filter, RefreshCw } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
+import QuickBetModal from '@/components/bet/QuickBetModal';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [showBetModal, setShowBetModal] = useState(false);
   
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -85,19 +88,33 @@ export default function OpportunitiesPage() {
     return () => clearInterval(interval);
   }, [typeFilter, sportFilter, minEdge]);
 
-  // Handle actions
-  const handleAction = async (opportunityId: number, actionType: 'taken' | 'dismissed' | 'noted', notes?: string) => {
+  // Handle Bet button click
+  const handleBetClick = (opp: Opportunity) => {
+    setSelectedOpportunity(opp);
+    setShowBetModal(true);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setShowBetModal(false);
+    setSelectedOpportunity(null);
+  };
+
+  // Handle successful bet placement
+  const handleBetSuccess = () => {
+    loadOpportunities(); // Refresh opportunities
+  };
+
+  // Handle Dismiss action
+  const handleDismiss = async (opportunityId: number) => {
     try {
       await createOpportunityAction(opportunityId, {
-        action_type: actionType,
-        operator: 'User', // TODO: Get from auth context
-        notes,
+        action_type: 'dismissed',
+        operator: 'User',
       });
-      
-      // Refresh opportunities
       loadOpportunities();
     } catch (err) {
-      console.error('Failed to create action:', err);
+      console.error('Failed to dismiss:', err);
     }
   };
 
@@ -310,13 +327,13 @@ export default function OpportunitiesPage() {
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleAction(opp.id, 'taken')}
-                              className="px-3 py-1 text-sm bg-green-500/10 text-green-500 border border-green-500/20 rounded hover:bg-green-500/20"
+                              onClick={() => handleBetClick(opp)}
+                              className="px-4 py-2 text-sm bg-green-500/10 text-green-500 border border-green-500/20 rounded hover:bg-green-500/20 font-semibold transition-colors"
                             >
-                              Taken
+                              💰 Bet
                             </button>
                             <button
-                              onClick={() => handleAction(opp.id, 'dismissed')}
+                              onClick={() => handleDismiss(opp.id)}
                               className="px-3 py-1 text-sm bg-red-500/10 text-red-500 border border-red-500/20 rounded hover:bg-red-500/20"
                             >
                               Dismiss
@@ -356,6 +373,16 @@ export default function OpportunitiesPage() {
           </div>
         )}
       </div>
+
+      {/* Quick Bet Modal */}
+      {showBetModal && selectedOpportunity && (
+        <QuickBetModal
+          opportunity={selectedOpportunity}
+          bankroll={10000} // TODO: Get from user settings
+          onClose={handleModalClose}
+          onSuccess={handleBetSuccess}
+        />
+      )}
     </div>
   );
 }
