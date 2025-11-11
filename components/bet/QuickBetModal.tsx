@@ -339,3 +339,4 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
   );
 }
 
+

@@ -24,12 +24,36 @@ export function Header() {
           {/* Navigation */}
           <nav className="flex items-center gap-4">
             <Link 
+              href="/games" 
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname?.startsWith('/games') ? 'text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              🏀 Games
+            </Link>
+            <Link 
               href="/odds/basketball_nba" 
               className={`text-sm font-medium transition-colors hover:text-primary ${
-                !isDebugPage ? 'text-foreground' : 'text-muted-foreground'
+                pathname?.startsWith('/odds') ? 'text-foreground' : 'text-muted-foreground'
               }`}
             >
               Live Odds
+            </Link>
+            <Link 
+              href="/opportunities" 
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname?.startsWith('/opportunities') ? 'text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              Opportunities
+            </Link>
+            <Link 
+              href="/bets" 
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname?.startsWith('/bets') ? 'text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              Bets
             </Link>
             <Link 
               href="/debug/raw-odds" 
