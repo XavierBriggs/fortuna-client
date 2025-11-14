@@ -58,10 +58,10 @@ export function useLiveGames() {
   }, [wsLiveGames]);
 
   return {
-    games,
+    liveGames: games,
     loading,
     error,
-    refresh: fetchLiveGames,
+    refetchLiveGames: fetchLiveGames,
     wsConnected: connected,
   };
 }
