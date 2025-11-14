@@ -118,3 +118,4 @@ The backend opportunity creation logic should be reviewed to prevent duplicate o
 - `web/fortuna_client/app/opportunities/page.tsx`
 
 
+

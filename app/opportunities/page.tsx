@@ -252,6 +252,7 @@ export default function OpportunitiesPage() {
                   <th className="px-4 py-3 text-left text-sm font-semibold">Event</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Market</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Edge %</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold">Sharp Line</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Legs</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Age</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
@@ -260,13 +261,13 @@ export default function OpportunitiesPage() {
               <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                       Loading opportunities...
                     </td>
                   </tr>
                 ) : opportunities.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                       No opportunities found. Adjust filters or wait for new detections.
                     </td>
                   </tr>
@@ -299,6 +300,20 @@ export default function OpportunitiesPage() {
                           <span className="text-lg font-bold text-primary">
                             {opp.edge_pct.toFixed(2)}%
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {opp.fair_price ? (
+                            <div>
+                              <span className="text-sm font-mono text-muted-foreground">
+                                {formatOdds(opp.fair_price)}
+                              </span>
+                              <div className="text-xs text-muted-foreground/70">
+                                (sharp consensus)
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">N/A</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="space-y-1">
