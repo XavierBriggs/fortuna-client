@@ -165,6 +165,10 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
         const priceMatch = leg.outcome.match(/@\s*([-+]?\d+)/);
         const price = priceMatch ? parseInt(priceMatch[1]) : opportunity.legs[0].price;
 
+        // Get the point value from the opportunity leg (for spreads/totals)
+        const oppLeg = opportunity.legs.find(l => l.book_key === bookKey);
+        const point = oppLeg?.point || null;
+
         const response = await fetch('http://localhost:8081/api/v1/bets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -178,6 +182,7 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
             bet_type: getBetType(opportunity.opportunity_type),
             stake_amount: stakeAmount,
             bet_price: price,
+            point: point,
             placed_at: new Date().toISOString()
           })
         });
