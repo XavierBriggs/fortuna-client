@@ -117,7 +117,7 @@ export function useMinervaWebSocket() {
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     connected,
