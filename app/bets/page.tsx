@@ -2,7 +2,44 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
-import { DollarSign, Filter, Calendar, TrendingUp, Trophy, Activity, BarChart3 } from 'lucide-react';
+import { DollarSign, Filter, Calendar, TrendingUp, Trophy, Activity, BarChart3, Wallet, Shield, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { getSettings, updateSettings } from '@/lib/api-settings';
+import { UserSettings, UserSettingsUpdate } from '@/types/settings';
+import { useGamesStore } from '@/lib/stores/games-store';
+import { fetchEvents } from '@/lib/api';
+import type { Event } from '@/types';
+
+// All available sportsbooks (from Alexandria database)
+const ALL_BOOKS = [
+  { key: 'fanduel', name: 'FanDuel' },
+  { key: 'draftkings', name: 'DraftKings' },
+  { key: 'betmgm', name: 'BetMGM' },
+  { key: 'caesars', name: 'Caesars Sportsbook' },
+  { key: 'pointsbet', name: 'PointsBet' },
+  { key: 'betrivers', name: 'BetRivers' },
+  { key: 'hardrockbet', name: 'Hard Rock Bet' },
+  { key: 'espnbet', name: 'ESPN BET' },
+  { key: 'betonlineag', name: 'BetOnline.ag' },
+  { key: 'bovada', name: 'Bovada' },
+  { key: 'mybookieag', name: 'MyBookie.ag' },
+  { key: 'betus', name: 'BetUS' },
+  { key: 'pinnacle', name: 'Pinnacle' },
+  { key: 'bookmaker', name: 'Bookmaker' },
+  { key: 'circa', name: 'Circa Sports' },
+  { key: 'wynnbet', name: 'WynnBET' },
+  { key: 'fanatics', name: 'Fanatics' },
+  { key: 'unibet', name: 'Unibet' },
+  { key: 'williamhill_us', name: 'William Hill US' },
+  { key: 'ballybet', name: 'Bally Bet' },
+  { key: 'betparx', name: 'BetParx' },
+  { key: 'fliff', name: 'Fliff' },
+  { key: 'rebet', name: 'Rebet' },
+  { key: 'betanysports', name: 'BetAnySports' },
+  { key: 'gtbets', name: 'GTBets' },
+  { key: 'lowvig', name: 'LowVig' },
+  { key: 'sport888', name: '888 Sport' },
+  { key: 'williamhill', name: 'William Hill' },
+].sort((a, b) => a.name.localeCompare(b.name));
 
 interface BetWithPerformance {
   id: number;
@@ -51,10 +88,14 @@ interface BookSummary {
 }
 
 export default function BetsPage() {
-  const [activeTab, setActiveTab] = useState<'history' | 'analytics'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'analytics' | 'bankroll'>('history');
+  
+  // Get game data for enriching history
+  const { getGameById } = useGamesStore();
   
   // History state
   const [bets, setBets] = useState<BetWithPerformance[]>([]);
+  const [events, setEvents] = useState<Map<string, Event>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,9 +109,27 @@ export default function BetsPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
+  // Bankroll state
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [bankrolls, setBankrolls] = useState<Record<string, number>>({});
+  const [kellyFraction, setKellyFraction] = useState(0.25);
+  const [minEdge, setMinEdge] = useState(1.0);
+  const [maxStake, setMaxStake] = useState(10.0);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   useEffect(() => {
     loadBets();
+    loadEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sportFilter, bookFilter, resultFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'bankroll') {
+      loadSettings();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === 'analytics') {
@@ -101,6 +160,25 @@ export default function BetsPage() {
     }
   };
 
+  const loadEvents = async () => {
+    try {
+      // Fetch events for the current sport filter (or default to basketball_nba)
+      const sport = sportFilter || 'basketball_nba';
+      const eventsData = await fetchEvents(sport);
+      
+      // Create a map of event_id -> Event
+      const eventsMap = new Map<string, Event>();
+      eventsData.forEach((event: Event) => {
+        eventsMap.set(event.event_id, event);
+      });
+      
+      setEvents(eventsMap);
+    } catch (err) {
+      console.error('Failed to load events:', err);
+      // Don't show error to user, just log it - we can fall back to showing IDs
+    }
+  };
+
   const loadSummary = async () => {
     try {
       setAnalyticsLoading(true);
@@ -115,6 +193,58 @@ export default function BetsPage() {
     } finally {
       setAnalyticsLoading(false);
     }
+  };
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      setSaveError(null);
+      const data = await getSettings();
+      setSettings(data);
+      setBankrolls(data.bankrolls || {});
+      setKellyFraction(data.kelly_fraction);
+      setMinEdge(data.min_edge_threshold);
+      setMaxStake(data.max_stake_pct);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to load settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true);
+      setSaveError(null);
+      setSaveSuccess(false);
+
+      const update: UserSettingsUpdate = {
+        bankrolls,
+        kelly_fraction: kellyFraction,
+        min_edge_threshold: minEdge,
+        max_stake_pct: maxStake,
+      };
+
+      const response = await updateSettings(update);
+      setSettings(response.settings);
+      setSaveSuccess(true);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getTotalBankroll = () => {
+    return Object.values(bankrolls).reduce((sum, amount) => sum + amount, 0);
+  };
+
+  const getKellyLabel = () => {
+    const fraction = 1 / kellyFraction;
+    return `1/${Math.round(fraction)} Kelly`;
   };
 
   const getCLVColor = (clv?: number) => {
@@ -194,6 +324,21 @@ export default function BetsPage() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
             )}
           </button>
+
+          <button
+            onClick={() => setActiveTab('bankroll')}
+            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${
+              activeTab === 'bankroll'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Wallet className="h-4 w-4" />
+            Bankroll
+            {activeTab === 'bankroll' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
         </div>
 
         {/* History Tab */}
@@ -270,7 +415,7 @@ export default function BetsPage() {
                   <thead className="bg-muted/50 border-b border-border">
                     <tr>
                       <th className="px-4 py-3 text-left text-sm font-semibold">Date</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">Event</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold">Game</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold">Market</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold">Book</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold">Outcome</th>
@@ -294,48 +439,104 @@ export default function BetsPage() {
                         </td>
                       </tr>
                     ) : (
-                      bets.map((bet) => (
-                        <tr key={bet.id} className="hover:bg-muted/50 transition-colors">
-                          <td className="px-4 py-3 text-sm">
-                            {formatDate(bet.placed_at)}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <div className="max-w-[150px] truncate" title={bet.event_id}>
-                              {bet.event_id.substring(0, 20)}...
-                            </div>
-                            <div className="text-xs text-muted-foreground">{bet.sport_key}</div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {bet.market_key}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium">
-                            {bet.book_key}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {bet.outcome_name}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-semibold">
-                            ${bet.stake_amount.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-mono">
-                            {formatOdds(bet.bet_price)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {bet.clv_cents !== undefined && bet.clv_cents !== null ? (
-                              <span className={`text-sm font-semibold ${getCLVColor(bet.clv_cents)}`}>
-                                {bet.clv_cents > 0 ? '+' : ''}{bet.clv_cents.toFixed(2)}¢
+                      bets.map((bet) => {
+                        // Try to get event data first (from API), then fall back to game data (from game store)
+                        const event = events.get(bet.event_id);
+                        const game = getGameById(bet.event_id);
+                        
+                        return (
+                          <tr key={bet.id} className="hover:bg-muted/50 transition-colors">
+                            <td className="px-4 py-3 text-sm">
+                              {formatDate(bet.placed_at)}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {event || game ? (
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    {game?.status === 'live' && (
+                                      <div className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                      </div>
+                                    )}
+                                    <div className="font-medium">
+                                      {game ? (
+                                        `${game.away_team_abbr} @ ${game.home_team_abbr}`
+                                      ) : event ? (
+                                        `${event.away_team} @ ${event.home_team}`
+                                      ) : ''}
+                                    </div>
+                                  </div>
+                                  {game?.status === 'live' && (
+                                    <div className="text-xs text-red-500 font-semibold mt-0.5">
+                                      LIVE {game.away_score}-{game.home_score} • {game.period_label}
+                                    </div>
+                                  )}
+                                  {game?.status === 'final' && (
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      Final: {game.away_score}-{game.home_score}
+                                    </div>
+                                  )}
+                                  {game?.status === 'upcoming' && (
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      {new Date(game.commence_time).toLocaleTimeString('en-US', { 
+                                        hour: 'numeric', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </div>
+                                  )}
+                                  {!game && event && (
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      {new Date(event.commence_time).toLocaleString('en-US', { 
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric', 
+                                        minute: '2-digit' 
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="max-w-[150px] truncate" title={bet.event_id}>
+                                    {bet.event_id.substring(0, 20)}...
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{bet.sport_key}</div>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {bet.market_key}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium">
+                              {bet.book_key}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {bet.outcome_name}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-semibold">
+                              ${bet.stake_amount.toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-mono">
+                              {formatOdds(bet.bet_price)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              {bet.clv_cents !== undefined && bet.clv_cents !== null ? (
+                                <span className={`text-sm font-semibold ${getCLVColor(bet.clv_cents)}`}>
+                                  {bet.clv_cents > 0 ? '+' : ''}{bet.clv_cents.toFixed(2)}¢
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Pending</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-block px-2 py-1 rounded text-xs font-semibold uppercase border ${getResultBadge(bet.result)}`}>
+                                {bet.result}
                               </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Pending</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-block px-2 py-1 rounded text-xs font-semibold uppercase border ${getResultBadge(bet.result)}`}>
-                              {bet.result}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -549,6 +750,191 @@ export default function BetsPage() {
                     </div>
                   </div>
                 )}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Bankroll Tab */}
+        {activeTab === 'bankroll' && (
+          <>
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading bankroll settings...</p>
+              </div>
+            ) : (
+              <>
+                {/* Error Message */}
+                {saveError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-lg flex items-start gap-3 mb-6">
+                    <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold">Error</p>
+                      <p className="text-sm mt-1">{saveError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success Message */}
+                {saveSuccess && (
+                  <div className="bg-green-500/10 border border-green-500/20 text-green-500 p-4 rounded-lg flex items-center gap-3 mb-6">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <p className="font-semibold">Settings saved successfully!</p>
+                  </div>
+                )}
+
+                {/* Total Bankroll Summary */}
+                <div className="bg-gradient-to-r from-primary/10 to-blue-500/10 border border-primary/20 rounded-lg p-6 mb-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Total Bankroll Across All Books</p>
+                      <p className="text-4xl font-bold text-primary">${getTotalBankroll().toLocaleString()}</p>
+                    </div>
+                    <DollarSign className="h-12 w-12 text-primary/50" />
+                  </div>
+                </div>
+
+                {/* Recent Activity Indicator */}
+                {settings && (
+                  <div className="bg-card border border-border rounded-lg p-4 mb-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                      <p className="text-sm font-medium">Bankroll Status</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Last updated: {new Date(settings.updated_at).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {/* Per-Book Bankrolls */}
+                <div className="bg-card border border-border rounded-lg p-6 mb-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Wallet className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-semibold">Per-Book Bankrolls</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Set your current bankroll for each sportsbook. Kelly sizing will use the specific book's bankroll.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
+                    {ALL_BOOKS.map((book) => (
+                      <div key={book.key}>
+                        <label className="block text-sm font-medium mb-2">{book.name}</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={bankrolls[book.key] || 0}
+                            onChange={(e) => setBankrolls({ ...bankrolls, [book.key]: parseFloat(e.target.value) || 0 })}
+                            className="w-full pl-8 pr-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Kelly Fraction */}
+                <div className="bg-card border border-border rounded-lg p-6 mb-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <h2 className="text-xl font-semibold">Kelly Criterion Settings</h2>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium">Kelly Fraction</label>
+                      <span className="text-lg font-bold text-primary">{getKellyLabel()}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.05"
+                      value={kellyFraction}
+                      onChange={(e) => setKellyFraction(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>1/10 (Very Conservative)</span>
+                      <span>1/4 (Recommended)</span>
+                      <span>1/2 (Moderate)</span>
+                      <span>Full Kelly (Aggressive)</span>
+                    </div>
+                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded text-sm text-blue-500">
+                      <strong>Recommendation:</strong> 1/4 Kelly (0.25) balances growth and risk. Full Kelly is too aggressive even with perfect edge estimates.
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Minimum Edge Threshold (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={minEdge}
+                        onChange={(e) => setMinEdge(parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Only show opportunities above this edge</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Maximum Stake (% of bankroll)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="1"
+                        value={maxStake}
+                        onChange={(e) => setMaxStake(parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Safety cap to limit variance</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Best Practices */}
+                <div className="bg-card border border-yellow-500/20 rounded-lg p-6 mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="h-5 w-5 text-yellow-500" />
+                    <h3 className="font-semibold text-yellow-500">Best Practices</h3>
+                  </div>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Keep separate bankrolls for each book - this matches your real account structure</li>
+                    <li>• Use 1/4 Kelly for conservative bankroll growth (recommended for most bettors)</li>
+                    <li>• Set minimum edge at 1-2% to account for estimation uncertainty</li>
+                    <li>• Never bet more than 10% of your bankroll on a single bet (5% is safer)</li>
+                    <li>• Rebalance your bankrolls periodically by withdrawing profits or adding funds</li>
+                    <li>• Track your CLV (Closing Line Value) - if consistently negative, recalibrate your edge estimates</li>
+                  </ul>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={saving}
+                  className="w-full bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5" />
+                      Save Bankroll Settings
+                    </>
+                  )}
+                </button>
               </>
             )}
           </>
