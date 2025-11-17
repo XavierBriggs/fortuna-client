@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import { useLiveGames } from '@/hooks/useLiveGames';
 import { LiveGameCard } from '@/components/minerva/live-games/LiveGameCard';
-import { BoxScoreModal } from '@/components/minerva/live-games/BoxScoreModal';
+import { PlayerSearch } from '@/components/minerva/PlayerSearch';
+import { PlayerStatsLookup } from '@/components/minerva/PlayerStatsLookup';
 import { minervaAPI, BackfillRequest, BackfillStatus, Game } from '@/lib/minerva-api';
-import { RefreshCw, Calendar, Database, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { RefreshCw, Calendar, Database, CheckCircle2, Loader2, AlertCircle, History, BarChart3, Activity, Search } from 'lucide-react';
 
 export default function MinervaPage() {
   const { liveGames, loading, error, wsConnected, refetchLiveGames } = useLiveGames();
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
-  const [showBoxScore, setShowBoxScore] = useState(false);
+  const [activeTab, setActiveTab] = useState<'games' | 'stats' | 'lookup' | 'data'>('games');
   
   // Historical games
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -21,19 +21,18 @@ export default function MinervaPage() {
   // Backfill
   const [backfillStatus, setBackfillStatus] = useState<BackfillStatus | null>(null);
   const [backfillLoading, setBackfillLoading] = useState(false);
-  const [showBackfill, setShowBackfill] = useState(false);
 
-  const liveNow = liveGames.filter(g => g.game_status === 'in_progress' || g.game_status === 'Live');
-  const upcoming = liveGames.filter(g => g.game_status === 'scheduled' || g.game_status === 'Scheduled');
-  const final = liveGames.filter(g => g.game_status === 'final' || g.game_status === 'Final');
+  const liveNow = liveGames.filter(g => g.game_status === 'in_progress' || g.game_status === 'Live' || g.status === 'in_progress');
+  const upcoming = liveGames.filter(g => g.game_status === 'scheduled' || g.game_status === 'Scheduled' || g.status === 'scheduled');
+  const final = liveGames.filter(g => g.game_status === 'final' || g.game_status === 'Final' || g.status === 'final');
 
   useEffect(() => {
-    if (showBackfill) {
+    if (activeTab === 'data') {
       fetchBackfillStatus();
       const interval = setInterval(fetchBackfillStatus, 3000);
       return () => clearInterval(interval);
     }
-  }, [showBackfill]);
+  }, [activeTab]);
 
   const fetchBackfillStatus = async () => {
     try {
@@ -49,13 +48,11 @@ export default function MinervaPage() {
       setBackfillLoading(true);
       const request: BackfillRequest = {
         sport: 'basketball_nba',
-        season_id: parseInt(seasonId.replace('-', '')),
+        season_id: seasonId,
       };
       await minervaAPI.triggerBackfill(request);
-      setTimeout(() => {
-        fetchBackfillStatus();
-        refetchLiveGames();
-      }, 2000);
+      await fetchBackfillStatus();
+      refetchLiveGames();
     } catch (err) {
       console.error('Failed to trigger backfill:', err);
     } finally {
@@ -80,12 +77,14 @@ export default function MinervaPage() {
     loadHistoricalGames(date);
   };
 
-  const handleViewDetails = (gameId: string) => {
-    setSelectedGameId(gameId);
-    setShowBoxScore(true);
-  };
-
-  const isBackfillRunning = backfillStatus?.status === 'running';
+  const activeJob = backfillStatus?.active_job;
+  const isBackfillRunning = activeJob?.status === 'running';
+  const progressPct =
+    activeJob && activeJob.progress_total > 0
+      ? Math.min(100, Math.round((activeJob.progress_current / activeJob.progress_total) * 100))
+      : null;
+  const statusLabel = activeJob?.status ?? backfillStatus?.status ?? 'idle';
+  const statusMessage = activeJob?.status_message ?? backfillStatus?.message ?? 'No active jobs';
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,256 +139,381 @@ export default function MinervaPage() {
           </div>
         </div>
 
-        {/* Data Management Section */}
-        <div className="bg-card border border-border rounded-lg mb-8">
-          <button
-            onClick={() => setShowBackfill(!showBackfill)}
-            className="w-full flex items-center justify-between p-6 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Database className="h-5 w-5 text-primary" />
-              <div className="text-left">
-                <h2 className="text-lg font-semibold">Data Management</h2>
-                <p className="text-sm text-muted-foreground">Load historical seasons and manage data backfill</p>
-              </div>
-            </div>
-            <span className="text-2xl text-muted-foreground">{showBackfill ? '−' : '+'}</span>
-          </button>
-
-          {showBackfill && (
-            <div className="border-t border-border p-6 space-y-4">
-              {/* Status Banner */}
-              {backfillStatus && (
-                <div className={`rounded-lg p-4 border ${
-                  backfillStatus.status === 'running' 
-                    ? 'bg-blue-500/10 border-blue-500/20' 
-                    : backfillStatus.status === 'completed'
-                    ? 'bg-green-500/10 border-green-500/20'
-                    : backfillStatus.status === 'error'
-                    ? 'bg-red-500/10 border-red-500/20'
-                    : 'bg-muted border-border'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    {backfillStatus.status === 'running' && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
-                    {backfillStatus.status === 'completed' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                    {backfillStatus.status === 'error' && <AlertCircle className="h-5 w-5 text-red-500" />}
-                    <div className="flex-1">
-                      <div className="font-semibold capitalize">{backfillStatus.status}</div>
-                      <div className="text-sm text-muted-foreground">{backfillStatus.message}</div>
-                    </div>
-                  </div>
-                  {backfillStatus.progress && backfillStatus.total && (
-                    <div className="mt-3">
-                      <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                        <span>Progress</span>
-                        <span>{Math.round((backfillStatus.progress / backfillStatus.total) * 100)}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="bg-primary h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(backfillStatus.progress / backfillStatus.total) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Quick Load Buttons */}
-              <div>
-                <label className="block text-sm font-medium mb-3">Load Season Data</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {['2024-25', '2023-24', '2022-23', '2021-22'].map(season => (
-                    <button
-                      key={season}
-                      onClick={() => triggerBackfill(season)}
-                      disabled={backfillLoading || isBackfillRunning}
-                      className="px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
-                    >
-                      {season}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <div className="text-sm text-blue-400">
-                  ℹ️ Loads complete season data from ESPN • Takes 2-5 minutes • Only one operation at a time
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Historical Games Lookup */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Calendar className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Historical Games</h2>
-          </div>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-2">Select Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg"
-              />
-            </div>
+        {/* Tab Navigation */}
+        <div className="bg-card border border-border rounded-lg mb-6">
+          <div className="flex border-b border-border overflow-x-auto">
             <button
-              onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
-              className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg font-medium transition-colors"
+              onClick={() => setActiveTab('games')}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'games'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              Today
+              <Activity className="h-5 w-5" />
+              Live & Upcoming Games
+            </button>
+            <button
+              onClick={() => setActiveTab('stats')}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'stats'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <BarChart3 className="h-5 w-5" />
+              Stats & History
+            </button>
+            <button
+              onClick={() => setActiveTab('lookup')}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'lookup'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Search className="h-5 w-5" />
+              Player Lookup
+            </button>
+            <button
+              onClick={() => setActiveTab('data')}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'data'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Database className="h-5 w-5" />
+              Data Management
             </button>
           </div>
-
-          {loadingHistorical ? (
-            <div className="mt-4 text-center py-8 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-              Loading games...
-            </div>
-          ) : historicalGames.length > 0 ? (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {historicalGames.map(game => (
-                <div
-                  key={game.game_id}
-                  className="p-4 bg-background border border-border rounded-lg hover:border-primary transition-colors cursor-pointer"
-                  onClick={() => handleViewDetails(game.game_id)}
-                >
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase">
-                      {game.game_status}
-                    </span>
-                    {game.period && <span className="text-xs text-muted-foreground">Q{game.period}</span>}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Team {game.away_team_id}</span>
-                      <span className="text-xl font-bold">{game.away_score ?? '-'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Team {game.home_team_id}</span>
-                      <span className="text-xl font-bold">{game.home_score ?? '-'}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : selectedDate ? (
-            <div className="mt-4 text-center py-8">
-              <p className="text-muted-foreground">No games found for this date</p>
-              <button
-                onClick={() => setShowBackfill(true)}
-                className="mt-3 text-sm text-primary hover:underline"
-              >
-                Load historical data
-              </button>
-            </div>
-          ) : null}
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg p-4 mb-6">
-            {error}
+        {/* Tab Content */}
+        {activeTab === 'games' && (
+          <div>
+            {/* Error */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-500 rounded-lg p-4 mb-6">
+                {error}
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loading && liveGames.length === 0 ? (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4">Loading games...</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-[200px] rounded-lg border bg-card animate-pulse" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-10">
+                {/* Live Games */}
+                {liveNow.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-5">
+                      <div className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                      </div>
+                      <h2 className="text-2xl font-semibold text-red-500">Live Now</h2>
+                      <span className="text-sm text-muted-foreground">({liveNow.length} {liveNow.length === 1 ? 'game' : 'games'})</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {liveNow.map(game => (
+                        <LiveGameCard key={game.game_id} game={game} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Upcoming Games */}
+                {upcoming.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-5">
+                      <span className="text-2xl">📅</span>
+                      <h2 className="text-2xl font-semibold">Upcoming Today</h2>
+                      <span className="text-sm text-muted-foreground">({upcoming.length} {upcoming.length === 1 ? 'game' : 'games'})</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {upcoming.map(game => (
+                        <LiveGameCard key={game.game_id} game={game} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Final Games */}
+                {final.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-5">
+                      <span className="text-2xl">✅</span>
+                      <h2 className="text-2xl font-semibold">Final Scores</h2>
+                      <span className="text-sm text-muted-foreground">({final.length} {final.length === 1 ? 'game' : 'games'})</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {final.map(game => (
+                        <LiveGameCard key={game.game_id} game={game} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Games */}
+                {!loading && liveGames.length === 0 && (
+                  <div className="text-center py-20">
+                    <div className="text-8xl mb-6">🏀</div>
+                    <h3 className="text-2xl font-semibold mb-3">No games scheduled today</h3>
+                    <p className="text-muted-foreground text-lg mb-6">Check back later or load historical data</p>
+                    <button
+                      onClick={() => setActiveTab('data')}
+                      className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                    >
+                      Load Historical Data
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Loading State */}
-        {loading && liveGames.length === 0 ? (
+        {activeTab === 'stats' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-semibold mb-4">Loading games...</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-[200px] rounded-lg border bg-card animate-pulse" />
+            {/* Quick Links Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Teams */}
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Teams</h2>
+                  <span className="text-sm text-muted-foreground">Browse all NBA teams</span>
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  View team rosters, schedules, and statistics
+                </p>
+                <button
+                  onClick={async () => {
+                    const teams = await minervaAPI.getTeams();
+                    if (teams.length > 0) {
+                      window.location.href = `/minerva/teams/${teams[0].team_id}`;
+                    }
+                  }}
+                  className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                >
+                  Browse Teams →
+                </button>
+              </div>
+
+              {/* Players */}
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Players</h2>
+                  <span className="text-sm text-muted-foreground">Search player stats</span>
+                </div>
+                <p className="text-muted-foreground mb-4">
+                  View player profiles, game logs, and advanced statistics
+                </p>
+                <PlayerSearch />
+              </div>
+            </div>
+
+            {/* Historical Games Section */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Calendar className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">Historical Games</h2>
+              </div>
+
+              <div className="flex gap-3 mb-6">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="flex-1 px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  onClick={() => handleDateChange(new Date().toISOString().split('T')[0])}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                >
+                  Today
+                </button>
+              </div>
+
+              {loadingHistorical ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <p className="mt-2 text-muted-foreground">Loading games...</p>
+                </div>
+              ) : historicalGames.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {historicalGames.map(game => (
+                    <LiveGameCard key={game.game_id} game={game} />
+                  ))}
+                </div>
+              ) : selectedDate ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-2">No games found for this date</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Try a different date or load historical data
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('data')}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    Load Historical Data
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Quick Stats Info */}
+            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-lg p-6">
+              <h3 className="font-semibold mb-2">💡 Pro Tip</h3>
+              <p className="text-sm text-muted-foreground">
+                Click on any game card to view detailed box scores with player statistics. 
+                Click on team names to view rosters and schedules. 
+                Click on player names (in box scores or rosters) to view their profiles and game logs.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'lookup' && (
+          <div>
+            <PlayerStatsLookup />
+          </div>
+        )}
+
+        {activeTab === 'data' && (
+          <div className="space-y-6">
+            {/* Status Banner */}
+            {backfillStatus && (
+              <div className={`rounded-lg p-4 border ${
+                statusLabel === 'running' 
+                  ? 'bg-blue-500/10 border-blue-500/20' 
+                  : statusLabel === 'completed'
+                  ? 'bg-green-500/10 border-green-500/20'
+                  : statusLabel === 'failed' || statusLabel === 'error'
+                  ? 'bg-red-500/10 border-red-500/20'
+                  : 'bg-muted border-border'
+              }`}>
+                <div className="flex items-center gap-3">
+                  {statusLabel === 'running' && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
+                  {statusLabel === 'completed' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+                  {statusLabel === 'failed' && <AlertCircle className="h-5 w-5 text-red-500" />}
+                  <div className="flex-1">
+                    <div className="font-semibold capitalize">{statusLabel}</div>
+                    <div className="text-sm text-muted-foreground">{statusMessage}</div>
+                    {activeJob?.season_id && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Season {activeJob.season_id}
+                        {activeJob.start_date && activeJob.end_date && (
+                          <> · {activeJob.start_date} → {activeJob.end_date}</>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {progressPct !== null && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                      <span>Progress</span>
+                      <span>{progressPct}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progressPct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* History */}
+            {backfillStatus?.history?.length ? (
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <History className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-semibold text-muted-foreground">Recent Jobs</span>
+                </div>
+                <div className="space-y-2">
+                  {backfillStatus.history.slice(0, 5).map((job) => {
+                    const pct =
+                      job.progress_total > 0
+                        ? Math.min(100, Math.round((job.progress_current / job.progress_total) * 100))
+                        : null;
+                    return (
+                      <div
+                        key={job.job_id}
+                        className="flex flex-col md:flex-row md:items-center md:justify-between border border-border rounded-lg p-3 text-sm bg-muted/40"
+                      >
+                        <div>
+                          <div className="font-medium">
+                            {job.job_type} · {job.season_id || 'Custom Range'}
+                          </div>
+                          <div className="text-muted-foreground text-xs mt-1">
+                            {job.status_message || job.status}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 mt-3 md:mt-0">
+                          <span className="text-xs text-muted-foreground uppercase">
+                            {job.status}
+                          </span>
+                          {pct !== null && (
+                            <div className="w-24 bg-background rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className={`h-1.5 rounded-full ${
+                                  job.status === 'completed'
+                                    ? 'bg-green-500'
+                                    : job.status === 'failed'
+                                    ? 'bg-red-500'
+                                    : 'bg-blue-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Quick Load Buttons */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <label className="block text-sm font-medium mb-3">Load Season Data</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {['2025-26', '2024-25', '2023-24', '2022-23'].map(season => (
+                  <button
+                    key={season}
+                    onClick={() => triggerBackfill(season)}
+                    disabled={backfillLoading || isBackfillRunning}
+                    className="px-4 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-colors"
+                  >
+                    {season}
+                  </button>
                 ))}
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-10">
-            {/* Live Games */}
-            {liveNow.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </div>
-                  <h2 className="text-2xl font-semibold text-red-500">Live Now</h2>
-                  <span className="text-sm text-muted-foreground">({liveNow.length} {liveNow.length === 1 ? 'game' : 'games'})</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {liveNow.map(game => (
-                    <LiveGameCard key={game.game_id} game={game} onViewDetails={handleViewDetails} />
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Upcoming Games */}
-            {upcoming.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="text-2xl">📅</span>
-                  <h2 className="text-2xl font-semibold">Upcoming Today</h2>
-                  <span className="text-sm text-muted-foreground">({upcoming.length} {upcoming.length === 1 ? 'game' : 'games'})</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {upcoming.map(game => (
-                    <LiveGameCard key={game.game_id} game={game} onViewDetails={handleViewDetails} />
-                  ))}
-                </div>
+            {/* Info */}
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <div className="text-sm text-blue-400">
+                ℹ️ Loads complete season data from ESPN • Takes 2-5 minutes • Only one operation at a time
               </div>
-            )}
-
-            {/* Final Games */}
-            {final.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="text-2xl">✅</span>
-                  <h2 className="text-2xl font-semibold">Final Scores</h2>
-                  <span className="text-sm text-muted-foreground">({final.length} {final.length === 1 ? 'game' : 'games'})</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {final.map(game => (
-                    <LiveGameCard key={game.game_id} game={game} onViewDetails={handleViewDetails} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* No Games */}
-            {!loading && liveGames.length === 0 && (
-              <div className="text-center py-20">
-                <div className="text-8xl mb-6">🏀</div>
-                <h3 className="text-2xl font-semibold mb-3">No games scheduled today</h3>
-                <p className="text-muted-foreground text-lg mb-6">Check back later or load historical data</p>
-                <button
-                  onClick={() => setShowBackfill(true)}
-                  className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
-                >
-                  Load Historical Data
-                </button>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>
-
-      {/* Box Score Modal */}
-      <BoxScoreModal
-        gameId={selectedGameId}
-        isOpen={showBoxScore}
-        onClose={() => {
-          setShowBoxScore(false);
-          setSelectedGameId(null);
-        }}
-      />
     </div>
   );
 }

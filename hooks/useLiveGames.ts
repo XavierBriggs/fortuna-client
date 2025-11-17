@@ -8,16 +8,26 @@ export function useLiveGames() {
   const [error, setError] = useState<string | null>(null);
   const { connected, liveGames: wsLiveGames } = useMinervaWebSocket();
 
-  // Initial fetch
+  // Initial fetch - prioritize live games, fallback to upcoming
   const fetchLiveGames = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const fetchedGames = await minervaAPI.getLiveGames();
-      setGames(fetchedGames);
+      
+      // First, try to get live games
+      const liveGames = await minervaAPI.getLiveGames();
+      
+      // If there are live games, use those
+      if (liveGames.length > 0) {
+        setGames(liveGames);
+      } else {
+        // No live games, fetch upcoming games
+        const upcomingGames = await minervaAPI.getUpcomingGames();
+        setGames(upcomingGames);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch live games');
-      console.error('Error fetching live games:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch games');
+      console.error('Error fetching games:', err);
     } finally {
       setLoading(false);
     }
