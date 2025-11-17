@@ -1,6 +1,11 @@
-import { redirect } from 'next/navigation';
+import { BotDashboard } from '@/components/bots/BotDashboard';
+import Navbar from '@/components/layout/Navbar';
 
 export default function Home() {
-  // Redirect to games page as the landing page
-  redirect('/games');
+  return (
+    <>
+      <Navbar />
+      <BotDashboard />
+    </>
+  );
 }

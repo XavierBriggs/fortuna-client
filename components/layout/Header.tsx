@@ -24,6 +24,14 @@ export function Header() {
           {/* Navigation */}
           <nav className="flex items-center gap-4">
             <Link 
+              href="/" 
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                pathname === '/' ? 'text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              🤖 Bots
+            </Link>
+            <Link 
               href="/games" 
               className={`text-sm font-medium transition-colors hover:text-primary ${
                 pathname?.startsWith('/games') ? 'text-foreground' : 'text-muted-foreground'

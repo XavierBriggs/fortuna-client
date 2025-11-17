@@ -56,6 +56,8 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
 
   const loadSettingsAndCalculate = async () => {
     try {
+      // Clear any previous errors
+      setError(null);
       const userSettings = await getSettings();
       setSettings(userSettings);
       await calculateStakes(userSettings);
@@ -72,6 +74,15 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
       setLoading(true);
       setError(null);
 
+      // Validate opportunity has an ID
+      if (!opportunity || !opportunity.id) {
+        const errorMsg = `Opportunity missing ID. Opportunity object: ${JSON.stringify(opportunity)}`;
+        console.error('[QuickBetModal]', errorMsg);
+        setError('Opportunity ID is missing. Please refresh and try again.');
+        setLoading(false);
+        return;
+      }
+
       // Determine which bankroll to use
       // For multi-leg opportunities, use the first leg's book bankroll
       const bookKey = opportunity.legs[0]?.book_key || '';
@@ -79,6 +90,8 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
       const kellyFraction = userSettings?.kelly_fraction || 0.25;
 
       // Debug logging
+      console.log('[QuickBetModal] Opportunity:', opportunity);
+      console.log('[QuickBetModal] Opportunity ID:', opportunity.id);
       console.log('[QuickBetModal] Book Key:', bookKey);
       console.log('[QuickBetModal] User Settings:', userSettings);
       console.log('[QuickBetModal] Book Bankroll:', bookBankroll);
@@ -89,36 +102,60 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
         setError(`Warning: ${bookKey} bankroll is $0. Please update in Settings.`);
       }
 
+      const requestBody = {
+        opportunity: {
+          id: opportunity.id,
+          opportunity_type: opportunity.opportunity_type,
+          edge_pct: opportunity.edge_pct,
+          legs: opportunity.legs.map(leg => ({
+            book_key: leg.book_key,
+            outcome_name: leg.outcome_name,
+            price: leg.price,
+            point: leg.point,
+            leg_edge_pct: leg.leg_edge_pct
+          }))
+        },
+        bankroll: bookBankroll,
+        kelly_fraction: kellyFraction
+      };
+
+      console.log('[QuickBetModal] Request to Kelly Calculator:', JSON.stringify(requestBody, null, 2));
+
       const response = await fetch('http://localhost:8084/api/v1/calculate-from-opportunity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          opportunity: {
-            id: opportunity.id,
-            opportunity_type: opportunity.opportunity_type,
-            edge_pct: opportunity.edge_pct,
-            legs: opportunity.legs.map(leg => ({
-              book_key: leg.book_key,
-              outcome_name: leg.outcome_name,
-              price: leg.price,
-              point: leg.point,
-              leg_edge_pct: leg.leg_edge_pct
-            }))
-          },
-          bankroll: bookBankroll,
-          kelly_fraction: kellyFraction
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'Failed to calculate stakes');
+        console.error('[QuickBetModal] Kelly Calculator Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errData
+        });
+        
+        // Check if this is actually a bot-service error (shouldn't happen here)
+        if (errData.error && errData.error.includes('opportunity_id is required')) {
+          console.error('[QuickBetModal] ERROR: Bot-service error during calculation! This should not happen.');
+          console.error('[QuickBetModal] Full opportunity object:', opportunity);
+          throw new Error(`Unexpected error: ${errData.error}. Please check console for details.`);
+        }
+        
+        throw new Error(errData.error || `Failed to calculate stakes (${response.status})`);
       }
 
       const data = await response.json();
+      console.log('[QuickBetModal] Kelly Calculator Success:', data);
       setKellyCalc(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to calculate stakes');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to calculate stakes';
+      console.error('[QuickBetModal] Calculate Stakes Error:', {
+        error: err,
+        message: errorMessage,
+        opportunity: opportunity
+      });
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -257,29 +294,55 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
         };
       });
 
-      // Call bet-bot service
-      const response = await fetch('http://localhost:8085/api/v1/place-bet', {
+      // Validate opportunity has an ID
+      if (!opportunity.id) {
+        throw new Error('Opportunity ID is missing. Cannot place bet with bot.');
+      }
+
+      const requestBody = {
+        opportunity_id: opportunity.id,
+        legs
+      };
+
+      console.log('[QuickBetModal] Bot Service Request:', JSON.stringify(requestBody, null, 2));
+
+      // Call bot service via API Gateway
+      const response = await fetch('http://localhost:8081/api/v1/bets/place-with-bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          opportunity_id: opportunity.id,
-          legs
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.reason || errData.error || 'Failed to place bets with bot');
+        console.error('[QuickBetModal] Bot Service Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errData
+        });
+        throw new Error(errData.reason || errData.error || `Failed to place bets with bot (${response.status})`);
       }
 
       const result = await response.json();
       
       if (result.success) {
-        const ticketInfo = result.ticket_numbers && result.ticket_numbers.length > 0
-          ? `Tickets: ${result.ticket_numbers.join(', ')}`
+        // Extract ticket numbers from results
+        const ticketNumbers = result.results
+          ?.map((r: any) => r.ticket_number)
+          .filter((tn: string) => tn) || [];
+        const ticketInfo = ticketNumbers.length > 0
+          ? `Tickets: ${ticketNumbers.join(', ')}`
           : '';
-        const latencyInfo = result.avg_latency_ms
-          ? `Placed in ${(result.avg_latency_ms / 1000).toFixed(1)}s`
+        
+        // Calculate average latency
+        const latencies = result.results
+          ?.map((r: any) => r.latency_ms)
+          .filter((l: number) => l) || [];
+        const avgLatency = latencies.length > 0
+          ? latencies.reduce((a: number, b: number) => a + b, 0) / latencies.length
+          : 0;
+        const latencyInfo = avgLatency > 0
+          ? `Placed in ${(avgLatency / 1000).toFixed(1)}s`
           : '';
         
         setBotResult(`✅ Bets placed successfully! ${ticketInfo} ${latencyInfo}`.trim());
@@ -290,7 +353,14 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
           onClose();
         }, 2000);
       } else {
-        throw new Error(result.reason || 'Bot placement failed');
+        // Extract error messages from results
+        const errors = result.results
+          ?.map((r: any) => r.error)
+          .filter((e: string) => e) || [];
+        const errorMsg = errors.length > 0
+          ? errors.join('; ')
+          : 'Bot placement failed';
+        throw new Error(errorMsg);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place bets with bot');

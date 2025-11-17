@@ -11,7 +11,7 @@ export default function Navbar() {
   const isActive = (path: string) => pathname === path;
   
   const navItems = [
-    { href: '/', label: 'Home', icon: Home },
+    { href: '/', label: 'Bots', icon: Home },
     { href: '/odds/basketball_nba', label: 'Live Odds', icon: BarChart3 },
     { href: '/opportunities', label: 'Opportunities', icon: Target },
     { href: '/minerva', label: 'NBA Analytics', icon: Radio },
