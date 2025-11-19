@@ -22,9 +22,9 @@ export default function MinervaPage() {
   const [backfillStatus, setBackfillStatus] = useState<BackfillStatus | null>(null);
   const [backfillLoading, setBackfillLoading] = useState(false);
 
-  const liveNow = liveGames.filter(g => g.game_status === 'in_progress' || g.game_status === 'Live' || g.status === 'in_progress');
-  const upcoming = liveGames.filter(g => g.game_status === 'scheduled' || g.game_status === 'Scheduled' || g.status === 'scheduled');
-  const final = liveGames.filter(g => g.game_status === 'final' || g.game_status === 'Final' || g.status === 'final');
+  const liveNow = liveGames.filter(g => g.game_status === 'in_progress' || g.status === 'in_progress');
+  const upcoming = liveGames.filter(g => g.game_status === 'scheduled' || g.status === 'scheduled');
+  const final = liveGames.filter(g => g.game_status === 'final' || g.status === 'final');
 
   useEffect(() => {
     if (activeTab === 'data') {

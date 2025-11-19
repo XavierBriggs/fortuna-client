@@ -89,10 +89,10 @@ interface BookSummary {
 
 export default function BetsPage() {
   const [activeTab, setActiveTab] = useState<'history' | 'analytics' | 'bankroll'>('history');
-  
+
   // Get game data for enriching history
   const { getGameById } = useGamesStore();
-  
+
   // History state
   const [bets, setBets] = useState<BetWithPerformance[]>([]);
   const [events, setEvents] = useState<Map<string, Event>>(new Map());
@@ -165,13 +165,13 @@ export default function BetsPage() {
       // Fetch events for the current sport filter (or default to basketball_nba)
       const sport = sportFilter || 'basketball_nba';
       const eventsData = await fetchEvents(sport);
-      
+
       // Create a map of event_id -> Event
       const eventsMap = new Map<string, Event>();
       eventsData.forEach((event: Event) => {
         eventsMap.set(event.event_id, event);
       });
-      
+
       setEvents(eventsMap);
     } catch (err) {
       console.error('Failed to load events:', err);
@@ -185,7 +185,7 @@ export default function BetsPage() {
       setAnalyticsError(null);
       const response = await fetch('http://localhost:8081/api/v1/bets/summary');
       if (!response.ok) throw new Error('Failed to fetch summary');
-      
+
       const data = await response.json();
       setSummary(data);
     } catch (err) {
@@ -297,11 +297,10 @@ export default function BetsPage() {
         <div className="flex gap-2 mb-6 border-b border-border">
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${
-              activeTab === 'history'
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${activeTab === 'history'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Calendar className="h-4 w-4" />
             History
@@ -309,14 +308,13 @@ export default function BetsPage() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
             )}
           </button>
-          
+
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${
-              activeTab === 'analytics'
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${activeTab === 'analytics'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             <BarChart3 className="h-4 w-4" />
             Analytics
@@ -327,11 +325,10 @@ export default function BetsPage() {
 
           <button
             onClick={() => setActiveTab('bankroll')}
-            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${
-              activeTab === 'bankroll'
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors relative ${activeTab === 'bankroll'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Wallet className="h-4 w-4" />
             Bankroll
@@ -409,33 +406,39 @@ export default function BetsPage() {
             )}
 
             {/* Bets Table */}
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="rounded-lg border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-muted/50 border-b border-border">
+                  <thead className="bg-card/50 backdrop-blur-sm border-b border-border text-xs uppercase text-muted-foreground font-medium">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">Date</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">Game</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">Market</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">Book</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold">Outcome</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold">Stake</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold">Odds</th>
-                      <th className="px-4 py-3 text-center text-sm font-semibold">CLV</th>
-                      <th className="px-4 py-3 text-center text-sm font-semibold">Result</th>
+                      <th className="px-4 py-3 text-left font-semibold">Date</th>
+                      <th className="px-4 py-3 text-left font-semibold">Game</th>
+                      <th className="px-4 py-3 text-left font-semibold">Market</th>
+                      <th className="px-4 py-3 text-left font-semibold">Book</th>
+                      <th className="px-4 py-3 text-left font-semibold">Outcome</th>
+                      <th className="px-4 py-3 text-right font-semibold">Stake</th>
+                      <th className="px-4 py-3 text-right font-semibold">Odds</th>
+                      <th className="px-4 py-3 text-center font-semibold">CLV</th>
+                      <th className="px-4 py-3 text-center font-semibold">Result</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/50">
                     {loading ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                          Loading bets...
+                        <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                            <p>Loading bets...</p>
+                          </div>
                         </td>
                       </tr>
                     ) : bets.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                          No bets found. Place your first bet from the opportunities page!
+                        <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center gap-2">
+                            <DollarSign className="h-8 w-8 text-muted-foreground/50" />
+                            <p>No bets found. Place your first bet from the opportunities page!</p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
@@ -443,10 +446,10 @@ export default function BetsPage() {
                         // Try to get event data first (from API), then fall back to game data (from game store)
                         const event = events.get(bet.event_id);
                         const game = getGameById(bet.event_id);
-                        
+
                         return (
-                          <tr key={bet.id} className="hover:bg-muted/50 transition-colors">
-                            <td className="px-4 py-3 text-sm">
+                          <tr key={bet.id} className="hover:bg-muted/30 transition-colors group">
+                            <td className="px-4 py-3 text-sm text-muted-foreground">
                               {formatDate(bet.placed_at)}
                             </td>
                             <td className="px-4 py-3 text-sm">
@@ -459,7 +462,7 @@ export default function BetsPage() {
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                                       </div>
                                     )}
-                                    <div className="font-medium">
+                                    <div className="font-medium text-foreground">
                                       {game ? (
                                         `${game.away_team_abbr} @ ${game.home_team_abbr}`
                                       ) : event ? (
@@ -468,69 +471,96 @@ export default function BetsPage() {
                                     </div>
                                   </div>
                                   {game?.status === 'live' && (
-                                    <div className="text-xs text-red-500 font-semibold mt-0.5">
+                                    <div className="text-[10px] text-red-500 font-bold mt-0.5 uppercase tracking-wider">
                                       LIVE {game.away_score}-{game.home_score} • {game.period_label}
                                     </div>
                                   )}
                                   {game?.status === 'final' && (
-                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                    <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
                                       Final: {game.away_score}-{game.home_score}
                                     </div>
                                   )}
                                   {game?.status === 'upcoming' && (
-                                    <div className="text-xs text-muted-foreground mt-0.5">
-                                      {new Date(game.commence_time).toLocaleTimeString('en-US', { 
-                                        hour: 'numeric', 
-                                        minute: '2-digit' 
+                                    <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
+                                      {new Date(game.commence_time).toLocaleTimeString('en-US', {
+                                        hour: 'numeric',
+                                        minute: '2-digit'
                                       })}
                                     </div>
                                   )}
                                   {!game && event && (
-                                    <div className="text-xs text-muted-foreground mt-0.5">
-                                      {new Date(event.commence_time).toLocaleString('en-US', { 
+                                    <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
+                                      {new Date(event.commence_time).toLocaleString('en-US', {
                                         month: 'short',
                                         day: 'numeric',
-                                        hour: 'numeric', 
-                                        minute: '2-digit' 
+                                        hour: 'numeric',
+                                        minute: '2-digit'
                                       })}
                                     </div>
                                   )}
                                 </div>
                               ) : (
                                 <div>
-                                  <div className="max-w-[150px] truncate" title={bet.event_id}>
+                                  <div className="max-w-[150px] truncate text-muted-foreground" title={bet.event_id}>
                                     {bet.event_id.substring(0, 20)}...
                                   </div>
-                                  <div className="text-xs text-muted-foreground">{bet.sport_key}</div>
+                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{bet.sport_key}</div>
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-4 py-3 text-sm text-muted-foreground">
                               {bet.market_key}
                             </td>
-                            <td className="px-4 py-3 text-sm font-medium">
+                            <td className="px-4 py-3 text-sm font-medium text-foreground">
                               {bet.book_key}
                             </td>
                             <td className="px-4 py-3 text-sm">
-                              {bet.outcome_name}
+                              <span className="bg-accent/50 px-2 py-0.5 rounded text-accent-foreground font-medium text-xs">
+                                {bet.outcome_name}
+                              </span>
                             </td>
-                            <td className="px-4 py-3 text-right text-sm font-semibold">
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-foreground">
                               ${bet.stake_amount.toFixed(2)}
                             </td>
-                            <td className="px-4 py-3 text-right text-sm font-mono">
+                            <td className="px-4 py-3 text-right text-sm font-mono text-primary font-bold">
                               {formatOdds(bet.bet_price)}
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-4 py-3 text-center relative group/clv">
                               {bet.clv_cents !== undefined && bet.clv_cents !== null ? (
-                                <span className={`text-sm font-semibold ${getCLVColor(bet.clv_cents)}`}>
-                                  {bet.clv_cents > 0 ? '+' : ''}{bet.clv_cents.toFixed(2)}¢
-                                </span>
+                                <>
+                                  <span className={`text-sm font-bold cursor-help border-b border-dotted border-current ${getCLVColor(bet.clv_cents)}`}>
+                                    {bet.clv_cents > 0 ? '+' : ''}{bet.clv_cents.toFixed(2)}¢
+                                  </span>
+
+                                  {/* CLV Tooltip */}
+                                  <div className="absolute hidden group-hover/clv:block right-0 top-full mt-2 bg-popover/95 backdrop-blur-md text-popover-foreground border border-border/50 rounded-lg shadow-xl p-3 z-50 min-w-[180px] animate-in fade-in zoom-in-95 duration-200 text-left">
+                                    <div className="text-xs space-y-2">
+                                      <div className="font-bold border-b border-border/50 pb-1 mb-1">CLV Calculation</div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Bet Price:</span>
+                                        <span className="font-mono font-semibold">{formatOdds(bet.bet_price)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Closing Line:</span>
+                                        <span className="font-mono font-semibold">
+                                          {bet.closing_line_price ? formatOdds(bet.closing_line_price) : 'N/A'}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between pt-1 border-t border-border/50 mt-1">
+                                        <span className="text-muted-foreground">Diff:</span>
+                                        <span className={`font-mono font-bold ${getCLVColor(bet.clv_cents)}`}>
+                                          {bet.clv_cents > 0 ? '+' : ''}{bet.clv_cents.toFixed(2)}¢
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </>
                               ) : (
-                                <span className="text-xs text-muted-foreground">Pending</span>
+                                <span className="text-xs text-muted-foreground italic">Pending</span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`inline-block px-2 py-1 rounded text-xs font-semibold uppercase border ${getResultBadge(bet.result)}`}>
+                              <span className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getResultBadge(bet.result)}`}>
                                 {bet.result}
                               </span>
                             </td>
@@ -655,7 +685,7 @@ export default function BetsPage() {
                           <span className="text-sm font-semibold">{summary.avg_clv_cents.toFixed(2)}¢</span>
                         </div>
                         <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full ${summary.avg_clv_cents > 2 ? 'bg-green-500' : summary.avg_clv_cents > 0 ? 'bg-yellow-500' : 'bg-red-500'}`}
                             style={{ width: `${Math.min(100, Math.max(0, (summary.avg_clv_cents + 5) * 10))}%` }}
                           />
@@ -667,7 +697,7 @@ export default function BetsPage() {
                           <span className="text-sm font-semibold">{summary.roi_pct.toFixed(1)}%</span>
                         </div>
                         <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full ${summary.roi_pct > 5 ? 'bg-green-500' : summary.roi_pct > 0 ? 'bg-yellow-500' : 'bg-red-500'}`}
                             style={{ width: `${Math.min(100, Math.max(0, summary.roi_pct * 2 + 50))}%` }}
                           />
@@ -799,15 +829,15 @@ export default function BetsPage() {
                 {settings && (
                   <div className="bg-card border border-border rounded-lg p-4 mb-6">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                      <p className="text-sm font-medium">Bankroll Status</p>
+                      <Activity className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold text-sm">Bankroll Status</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Last updated: {new Date(settings.updated_at).toLocaleString()}
+                    <p className="text-sm text-muted-foreground">
+                      You&apos;re currently tracking {Object.keys(bankrolls).length} sportsbooks.
+                      Your total bankroll is <span className="font-semibold text-foreground">${getTotalBankroll().toLocaleString()}</span>.
                     </p>
                   </div>
                 )}
-
                 {/* Per-Book Bankrolls */}
                 <div className="bg-card border border-border rounded-lg p-6 mb-6">
                   <div className="flex items-center gap-2 mb-4">
@@ -844,7 +874,7 @@ export default function BetsPage() {
                     <TrendingUp className="h-5 w-5 text-primary" />
                     <h2 className="text-xl font-semibold">Kelly Criterion Settings</h2>
                   </div>
-                  
+
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-sm font-medium">Kelly Fraction</label>

@@ -4,13 +4,16 @@ import { useState, memo } from 'react';
 import { OutcomeRow } from './OutcomeRow';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { EventGroup } from '@/types';
+import type { Book } from '@/lib/api';
 import { formatTime, formatDate } from '@/lib/utils';
 
 interface GameRowProps {
   eventGroup: EventGroup;
+  selectedBooks: Book[];
+  totalColumns: number;
 }
 
-export const GameRow = memo(function GameRow({ eventGroup }: GameRowProps) {
+export const GameRow = memo(function GameRow({ eventGroup, selectedBooks, totalColumns }: GameRowProps) {
   const { event, outcomes, hold, dataAge } = eventGroup;
   const [expanded, setExpanded] = useState(false);
   
@@ -34,12 +37,13 @@ export const GameRow = memo(function GameRow({ eventGroup }: GameRowProps) {
           showGameInfo={index === 0}
           timeDisplay={timeDisplay}
           dateDisplay={dateDisplay}
+          selectedBooks={selectedBooks}
         />
       ))}
       
       {hasMoreOutcomes && (
         <tr>
-          <td colSpan={10} className="p-0">
+          <td colSpan={totalColumns} className="p-0">
             <button
               onClick={() => setExpanded(!expanded)}
               className="w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center gap-2"
@@ -68,6 +72,7 @@ export const GameRow = memo(function GameRow({ eventGroup }: GameRowProps) {
           hold={null}
           dataAge={null}
           showGameInfo={false}
+          selectedBooks={selectedBooks}
         />
       ))}
     </>

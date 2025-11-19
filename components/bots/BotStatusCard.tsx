@@ -22,39 +22,38 @@ interface BotStatusCardProps {
 export function BotStatusCard({ bot }: BotStatusCardProps) {
   const getStatusColor = () => {
     if (bot.error) return 'text-destructive';
-    if (bot.logged_in) return 'text-fresh';
-    return 'text-stale';
+    if (bot.logged_in) return 'text-primary';
+    return 'text-muted-foreground';
   };
 
   const getStatusBadge = () => {
     if (bot.error) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-semibold">
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold uppercase tracking-wider shadow-[0_0_10px_-3px_rgba(239,68,68,0.5)]">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+            <span className="absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75 animate-ping"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
           </span>
           Error
-        </span>
+        </div>
       );
     }
     if (bot.logged_in) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-fresh/10 text-fresh text-xs font-semibold">
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold uppercase tracking-wider shadow-[0_0_10px_-3px_rgba(59,130,246,0.5)]">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-fresh opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-fresh"></span>
+            <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
           </span>
           Online
-        </span>
+        </div>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-stale opacity-75"></span>
-        </span>
+      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 border border-border text-muted-foreground text-xs font-bold uppercase tracking-wider">
+        <span className="h-2 w-2 rounded-full bg-muted-foreground/50"></span>
         Offline
-      </span>
+      </div>
     );
   };
 
@@ -72,48 +71,64 @@ export function BotStatusCard({ bot }: BotStatusCardProps) {
 
   const formatBalance = (balance: string | null) => {
     if (!balance) return 'N/A';
-    // Handle formats like "$9.17" or "$ 9.17"
     return balance.replace(/\s+/g, '');
   };
 
   return (
     <div className={cn(
-      "rounded-lg border bg-card p-6 transition-all duration-200 hover:shadow-lg",
-      bot.logged_in && "ring-1 ring-fresh/20",
-      bot.error && "ring-1 ring-destructive/20"
+      "group relative overflow-hidden rounded-xl border border-border bg-card/50 backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-glow hover:border-primary/50",
+      bot.error && "hover:border-destructive/50 hover:shadow-[0_0_20px_-5px_rgba(239,68,68,0.3)]"
     )}>
+      {/* Background Gradient */}
+      <div className={cn(
+        "absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 bg-gradient-to-br",
+        bot.error ? "from-destructive via-transparent to-transparent" : "from-primary via-transparent to-transparent"
+      )} />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold">{bot.display_name}</h3>
+      <div className="relative flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold tracking-tight">{bot.display_name}</h3>
         {getStatusBadge()}
       </div>
 
       {/* Balance */}
-      <div className="mb-4">
-        <div className="text-sm text-muted-foreground mb-1">Balance</div>
+      <div className="relative mb-6">
+        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Balance</div>
         <div className={cn(
-          "text-3xl font-bold tabular-nums",
+          "text-3xl font-mono font-bold tracking-tight",
           getStatusColor()
         )}>
           {formatBalance(bot.balance)}
         </div>
       </div>
 
-      {/* Session Duration */}
-      {bot.session_duration && (
-        <div className="mb-4">
-          <div className="text-sm text-muted-foreground mb-1">Session Duration</div>
-          <div className="text-lg font-medium">
-            {formatSessionDuration()}
+      {/* Footer Info */}
+      <div className="relative flex items-center justify-between pt-4 border-t border-border/50">
+        {bot.session_duration ? (
+          <div>
+            <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-0.5">Uptime</div>
+            <div className="text-sm font-mono font-medium text-foreground">
+              {formatSessionDuration()}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-xs text-muted-foreground italic">No active session</div>
+        )}
+
+        {/* Status Dot for visual balance */}
+        <div className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          bot.error ? "bg-destructive" : bot.logged_in ? "bg-primary" : "bg-muted-foreground/30"
+        )} />
+      </div>
 
       {/* Error Message */}
       {bot.error && (
-        <div className="mt-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
-          <div className="text-sm text-destructive font-medium">Error</div>
-          <div className="text-xs text-destructive/80 mt-1">{bot.error}</div>
+        <div className="relative mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-in slide-in-from-top-2">
+          <div className="flex items-start gap-2">
+            <div className="text-xs font-bold text-destructive uppercase tracking-wider mt-0.5">Error</div>
+          </div>
+          <div className="text-xs text-destructive/90 mt-1 font-medium leading-relaxed">{bot.error}</div>
         </div>
       )}
     </div>

@@ -4,25 +4,35 @@
 
 @layer base {
   :root {
-    --background: 220 13% 6%;
-    --foreground: 220 9% 92%;
-    --card: 220 13% 10%;
-    --card-foreground: 220 9% 92%;
-    --popover: 220 13% 10%;
-    --popover-foreground: 220 9% 92%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 218 11% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
+    /* Premium Dark Theme (Slate/Zinc based) */
+    --background: 222 47% 11%; /* Slate-900 */
+    --foreground: 210 40% 98%; /* Slate-50 */
+    
+    --card: 217 33% 17%; /* Slate-800 */
+    --card-foreground: 210 40% 98%; /* Slate-50 */
+    
+    --popover: 217 33% 17%; /* Slate-800 */
+    --popover-foreground: 210 40% 98%; /* Slate-50 */
+    
+    --primary: 217 91% 60%; /* Blue-500 */
+    --primary-foreground: 222 47% 11%; /* Slate-900 */
+    
+    --secondary: 215 28% 17%; /* Slate-800 (Darker) */
+    --secondary-foreground: 210 40% 98%; /* Slate-50 */
+    
+    --muted: 215 28% 17%; /* Slate-800 */
+    --muted-foreground: 215 20% 65%; /* Slate-400 */
+    
+    --accent: 217 91% 60%; /* Blue-500 (Same as primary for now, or slightly different) */
+    --accent-foreground: 222 47% 11%;
+    
+    --destructive: 0 84% 60%; /* Red-500 */
     --destructive-foreground: 210 40% 98%;
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 217 91% 60%;
+    
+    --border: 215 28% 17%; /* Slate-800 */
+    --input: 215 28% 17%; /* Slate-800 */
+    --ring: 217 91% 60%; /* Blue-500 */
+    
     --radius: 0.5rem;
   }
 }
@@ -40,15 +50,18 @@
 @layer components {
   /* Table styles */
   .odds-table {
-    @apply w-full border-collapse;
+    @apply w-full border-collapse table-auto;
+    table-layout: auto; /* Allow columns to auto-resize */
   }
   
   .odds-table th {
-    @apply sticky top-0 z-10 bg-card border-b border-border px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider;
+    @apply sticky top-0 z-10 bg-card border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider;
+    white-space: nowrap; /* Prevent text wrapping in headers */
   }
   
   .odds-table td {
-    @apply px-3 py-2 border-b border-border/50;
+    @apply border-b border-border/50;
+    white-space: nowrap; /* Prevent text wrapping in cells */
   }
   
   .odds-table tbody tr {

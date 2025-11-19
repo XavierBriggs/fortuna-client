@@ -7,9 +7,9 @@ import { ConnectionStatus } from '@/components/shared/ConnectionStatus';
 
 export default function Navbar() {
   const pathname = usePathname();
-  
+
   const isActive = (path: string) => pathname === path;
-  
+
   const navItems = [
     { href: '/', label: 'Bots', icon: Home },
     { href: '/odds/basketball_nba', label: 'Live Odds', icon: BarChart3 },
@@ -21,43 +21,55 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-8 py-4">
-        <div className="flex items-center justify-between">
+    <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
           {/* Logo/Brand - Left */}
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <Activity className="h-6 w-6 text-primary" />
-            <span className="font-bold text-xl">FORTUNA</span>
-          </Link>
-          
+          <div className="flex-shrink-0">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                <Activity className="h-5 w-5 text-primary transition-transform group-hover:scale-110" />
+                <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-primary/20 group-hover:ring-primary/40 transition-all" />
+              </div>
+              <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+                FORTUNA
+              </span>
+            </Link>
+          </div>
+
           {/* Navigation Links & Connection Status - Right */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-4">
             {/* Navigation Links */}
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.href);
-              
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium
-                    ${active 
-                      ? 'bg-primary/10 text-primary' 
-                      : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                    }
-                  `}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-            
+            <div className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`
+                      relative flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+                      ${active
+                        ? 'text-primary bg-primary/10'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
+                    {item.label}
+                    {active && (
+                      <span className="absolute inset-x-0 -bottom-[17px] h-[2px] bg-primary shadow-[0_0_10px_var(--primary)]" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
             {/* Divider */}
-            <div className="h-6 w-px bg-border mx-2"></div>
-            
+            <div className="hidden md:block h-6 w-px bg-white/10 mx-2"></div>
+
             {/* Connection Status */}
             <ConnectionStatus />
           </div>

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOddsStore } from '@/lib/stores/odds-store';
-import { Search, SlidersHorizontal } from 'lucide-react';
-import { getMarketDisplayName } from '@/lib/utils';
+import { Search, ChevronDown, Check } from 'lucide-react';
 import { fetchBooks, type Book } from '@/lib/api';
 
 const MARKETS = [
@@ -23,13 +22,29 @@ export function FilterBar() {
   const { filters, setFilters } = useOddsStore();
   const [searchInput, setSearchInput] = useState(filters.searchQuery);
   const [availableBooks, setAvailableBooks] = useState<Book[]>([]);
+  const [isBooksDropdownOpen, setIsBooksDropdownOpen] = useState(false);
+  const booksDropdownRef = useRef<HTMLDivElement>(null);
   
-  // Fetch available books on mount
+  // Fetch available books on mount - show ALL books from Alexandria
   useEffect(() => {
     fetchBooks().then(books => {
-      setAvailableBooks(books.filter(b => b.active));
+      setAvailableBooks(books); // Show all books, not just active ones
     });
   }, []);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (booksDropdownRef.current && !booksDropdownRef.current.contains(event.target as Node)) {
+        setIsBooksDropdownOpen(false);
+      }
+    };
+    
+    if (isBooksDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isBooksDropdownOpen]);
   
   const toggleMarket = (market: string) => {
     const newMarkets = filters.markets.includes(market)
@@ -38,11 +53,26 @@ export function FilterBar() {
     setFilters({ markets: newMarkets });
   };
   
-  const toggleBook = (book: string) => {
-    const newBooks = filters.books.includes(book)
-      ? filters.books.filter(b => b !== book)
-      : [...filters.books, book];
-    setFilters({ books: newBooks });
+  const toggleBook = (bookKey: string) => {
+    // If books array is empty, all books are shown
+    // If books array has items, only those books are shown
+    if (filters.books.length === 0) {
+      // Currently showing all books, select only this one
+      setFilters({ books: [bookKey] });
+    } else if (filters.books.includes(bookKey)) {
+      // Book is selected, remove it
+      const newBooks = filters.books.filter(b => b !== bookKey);
+      // If no books left, show all (empty array)
+      setFilters({ books: newBooks.length === 0 ? [] : newBooks });
+    } else {
+      // Book is not selected, add it
+      setFilters({ books: [...filters.books, bookKey] });
+    }
+  };
+  
+  const selectAllBooks = () => {
+    setFilters({ books: [] }); // Empty = all books shown
+    setIsBooksDropdownOpen(false); // Close dropdown after selection
   };
   
   const handleSearchChange = (value: string) => {
@@ -53,6 +83,21 @@ export function FilterBar() {
     }, 300);
     return () => clearTimeout(timeoutId);
   };
+  
+  // Get selected book names for display
+  const getSelectedBooksDisplay = () => {
+    if (filters.books.length === 0) {
+      return 'All Books';
+    } else if (filters.books.length === 1) {
+      return availableBooks.find(b => b.book_key === filters.books[0])?.display_name || '1 Book';
+    } else if (filters.books.length === availableBooks.length) {
+      return 'All Books';
+    } else {
+      return `${filters.books.length} Books`;
+    }
+  };
+  
+  const selectedBooksDisplay = getSelectedBooksDisplay();
   
   return (
     <div className="sticky top-16 z-40 w-full border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -98,24 +143,61 @@ export function FilterBar() {
         
         {/* Bottom row: Books and Edge */}
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Books */}
+          {/* Books Dropdown */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-muted-foreground">Books:</span>
-            <div className="flex gap-2 flex-wrap">
-              {availableBooks.map((book) => (
-                <button
-                  key={book.book_key}
-                  onClick={() => toggleBook(book.book_key)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors ${
-                    filters.books.includes(book.book_key) || filters.books.length === 0
-                      ? 'bg-primary/10 text-primary border-primary/50'
-                      : 'bg-background border-border hover:bg-accent'
-                  }`}
-                  title={book.book_type === 'sharp' ? 'Sharp Book' : 'Soft Book'}
-                >
-                  {book.display_name}
-                </button>
-              ))}
+            <div className="relative" ref={booksDropdownRef}>
+              <button
+                onClick={() => setIsBooksDropdownOpen(!isBooksDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-background hover:bg-accent transition-colors min-w-[180px] justify-between"
+              >
+                <span className="truncate">{selectedBooksDisplay}</span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isBooksDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isBooksDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-64 max-h-96 overflow-y-auto bg-card border border-border rounded-md shadow-lg z-50">
+                  {filters.books.length > 0 && (
+                    <div className="p-2 border-b border-border sticky top-0 bg-card">
+                      <button
+                        onClick={selectAllBooks}
+                        className="w-full px-2 py-1 text-xs font-medium rounded border border-border hover:bg-accent transition-colors"
+                      >
+                        Show All Books
+                      </button>
+                    </div>
+                  )}
+                  
+                  <div className="py-1">
+                    {availableBooks.map((book) => {
+                      // Book is selected (shown) if:
+                      // - filters.books is empty (show all), OR
+                      // - book is in the filters.books array
+                      const isSelected = filters.books.length === 0 || filters.books.includes(book.book_key);
+                      return (
+                        <button
+                          key={book.book_key}
+                          onClick={() => {
+                            toggleBook(book.book_key);
+                            // Keep dropdown open for multi-select
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                        >
+                          <div className={`flex-shrink-0 w-4 h-4 border rounded flex items-center justify-center ${
+                            isSelected ? 'bg-primary border-primary' : 'border-border'
+                          }`}>
+                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                          </div>
+                          <span className="flex-1">{book.display_name}</span>
+                          {book.book_type === 'sharp' && (
+                            <span className="text-xs text-muted-foreground">Sharp</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           

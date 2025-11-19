@@ -9,7 +9,7 @@ import { TrendingUp, Flame } from 'lucide-react';
 
 export function TopEdgesSidebar() {
   const filteredOdds = useFilteredOdds();
-  
+
   // Get top edges
   const topEdges = useMemo(() => {
     return filteredOdds
@@ -17,7 +17,7 @@ export function TopEdgesSidebar() {
       .sort((a, b) => (b.edge || 0) - (a.edge || 0))
       .slice(0, 10);
   }, [filteredOdds]);
-  
+
   return (
     <div className="sticky top-32 space-y-4">
       <div className="rounded-lg border border-border bg-card p-4">
@@ -25,7 +25,7 @@ export function TopEdgesSidebar() {
           <Flame className="h-5 w-5 text-edge-high" />
           <h2 className="text-lg font-bold">Top Edges</h2>
         </div>
-        
+
         {topEdges.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -37,7 +37,7 @@ export function TopEdgesSidebar() {
             {topEdges.map((odd, index) => {
               const dataAge = getDataAgeSeconds(odd);
               const pointPart = odd.point !== null ? `-${odd.point}` : '';
-              
+
               return (
                 <div
                   key={`${odd.event_id}-${odd.market_key}-${odd.book_key}-${odd.outcome_name}${pointPart}`}
@@ -53,7 +53,7 @@ export function TopEdgesSidebar() {
                     </div>
                     <AgeBadge seconds={dataAge} />
                   </div>
-                  
+
                   {/* Outcome */}
                   <div className="text-sm font-medium mb-1">
                     {odd.outcome_name}
@@ -63,7 +63,7 @@ export function TopEdgesSidebar() {
                       </span>
                     )}
                   </div>
-                  
+
                   {/* Odds and Book */}
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-mono font-semibold text-base">
@@ -73,7 +73,7 @@ export function TopEdgesSidebar() {
                       {getBookDisplayName(odd.book_key)}
                     </span>
                   </div>
-                  
+
                   {/* Fair Price */}
                   {odd.fair_price && (
                     <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
@@ -86,7 +86,7 @@ export function TopEdgesSidebar() {
           </div>
         )}
       </div>
-      
+
       {/* Summary Stats */}
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="text-sm font-semibold mb-3">Summary</h3>
@@ -102,13 +102,13 @@ export function TopEdgesSidebar() {
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Significant (>2%):</span>
+            <span className="text-muted-foreground">Significant (&gt;2%):</span>
             <span className="font-semibold text-edge-good">
               {filteredOdds.filter((o) => o.edge && o.edge > 0.02).length}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Rare (>5%):</span>
+            <span className="text-muted-foreground">Rare (&gt;5%):</span>
             <span className="font-semibold text-edge-high">
               {filteredOdds.filter((o) => o.edge && o.edge > 0.05).length}
             </span>

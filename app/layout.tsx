@@ -4,7 +4,7 @@ import "./globals.css";
 import { WebSocketProvider } from "@/providers/WebSocketProvider";
 import { OddsStoreProvider } from "@/providers/OddsStoreProvider";
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground min-h-screen selection:bg-primary/20 selection:text-primary`}>
         <OddsStoreProvider>
           <WebSocketProvider>
             {children}
