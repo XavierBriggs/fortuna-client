@@ -12,7 +12,7 @@ export interface GetOpportunitiesParams {
 
 export async function getOpportunities(params: GetOpportunitiesParams = {}): Promise<Opportunity[]> {
   const queryParams = new URLSearchParams();
-  
+
   if (params.type) queryParams.append('type', params.type);
   if (params.sport) queryParams.append('sport', params.sport);
   if (params.since) queryParams.append('since', params.since);
@@ -20,7 +20,7 @@ export async function getOpportunities(params: GetOpportunitiesParams = {}): Pro
   if (params.offset) queryParams.append('offset', params.offset.toString());
 
   const url = `${API_BASE_URL}/api/v1/opportunities?${queryParams.toString()}`;
-  
+
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -38,7 +38,7 @@ export async function getOpportunities(params: GetOpportunitiesParams = {}): Pro
 
 export async function getOpportunity(id: number): Promise<Opportunity> {
   const url = `${API_BASE_URL}/api/v1/opportunities/${id}`;
-  
+
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -58,7 +58,7 @@ export async function createOpportunityAction(
   action: Omit<OpportunityAction, 'id' | 'opportunity_id' | 'action_time'>
 ): Promise<OpportunityAction> {
   const url = `${API_BASE_URL}/api/v1/opportunities/${opportunityId}/actions`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -76,4 +76,32 @@ export async function createOpportunityAction(
 
 
 
+
+
+
+export interface BotConfig {
+  min_edge_pct: number;
+  kelly_fraction: number;
+  max_stake: number;
+  min_unit_size: number;
+  bankroll: number;
+}
+
+const BOT_MANAGER_URL = process.env.NEXT_PUBLIC_BOT_MANAGER_URL || 'http://localhost:5008';
+
+export async function getBotConfig(): Promise<BotConfig> {
+  const response = await fetch(`${BOT_MANAGER_URL}/config`);
+  if (!response.ok) throw new Error('Failed to fetch config');
+  return response.json();
+}
+
+export async function updateBotConfig(config: BotConfig): Promise<BotConfig> {
+  const response = await fetch(`${BOT_MANAGER_URL}/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) throw new Error('Failed to update config');
+  return response.json();
+}
 

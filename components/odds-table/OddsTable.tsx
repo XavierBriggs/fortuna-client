@@ -140,7 +140,7 @@ export function OddsTable() {
   const totalColumns = 4 + booksToDisplay.length + 1;
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="w-full rounded-lg border border-border overflow-hidden">
       <div className="overflow-x-auto custom-scrollbar">
         <table className="odds-table w-full table-auto min-w-full">
           <thead className="bg-card/50 backdrop-blur-sm text-xs uppercase text-muted-foreground font-medium">

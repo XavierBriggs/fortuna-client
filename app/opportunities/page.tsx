@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Opportunity, OpportunityType } from '@/types/opportunity';
 import { getOpportunities, createOpportunityAction } from '@/lib/api-opportunities';
-import { Activity, TrendingUp, Target, Zap, Filter, RefreshCw } from 'lucide-react';
+import { Activity, TrendingUp, Target, Zap, Filter, RefreshCw, Settings } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import QuickBetModal from '@/components/bet/QuickBetModal';
+import ConfigModal from '@/components/opportunities/ConfigModal';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -13,7 +14,8 @@ export default function OpportunitiesPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [showBetModal, setShowBetModal] = useState(false);
-  
+  const [showConfigModal, setShowConfigModal] = useState(false);
+
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('basketball_nba');
@@ -24,21 +26,21 @@ export default function OpportunitiesPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params: any = {
         sport: sportFilter,
         limit: 50,
       };
-      
+
       if (typeFilter !== 'all') {
         params.type = typeFilter;
       }
 
       const data = await getOpportunities(params);
-      
+
       // Filter by min edge on client side
       const filtered = data.filter(opp => opp.edge_pct >= minEdge);
-      
+
       // Deduplicate opportunities based on key characteristics
       const deduplicated = filtered.reduce((acc, opp) => {
         // Create a unique key based on event, market, legs, and edge
@@ -47,7 +49,7 @@ export default function OpportunitiesPage() {
           .sort()
           .join('|');
         const uniqueKey = `${opp.event_id}-${opp.market_key}-${opp.edge_pct.toFixed(2)}-${legsKey}`;
-        
+
         // Only keep the first occurrence (with lowest ID, assuming older is more relevant)
         const existing = acc.find(o => {
           const existingLegsKey = o.legs
@@ -57,18 +59,18 @@ export default function OpportunitiesPage() {
           const existingKey = `${o.event_id}-${o.market_key}-${o.edge_pct.toFixed(2)}-${existingLegsKey}`;
           return existingKey === uniqueKey;
         });
-        
+
         if (!existing) {
           acc.push(opp);
         } else {
           console.log(`[Opportunities] Filtered duplicate: ID ${opp.id} (keeping ID ${existing.id})`);
         }
-        
+
         return acc;
       }, [] as Opportunity[]);
-      
+
       setOpportunities(deduplicated);
-      
+
       if (deduplicated.length < filtered.length) {
         console.log(`[Opportunities] Removed ${filtered.length - deduplicated.length} duplicates`);
       }
@@ -81,10 +83,10 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     loadOpportunities();
-    
+
     // Auto-refresh every 10 seconds
     const interval = setInterval(loadOpportunities, 10000);
-    
+
     return () => clearInterval(interval);
   }, [typeFilter, sportFilter, minEdge]);
 
@@ -164,15 +166,24 @@ export default function OpportunitiesPage() {
               <p className="text-muted-foreground">Real-time edge detection from Fortuna</p>
             </div>
           </div>
-          
-          <button
-            onClick={loadOpportunities}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowConfigModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90"
+            >
+              <Settings className="h-4 w-4" />
+              Settings
+            </button>
+            <button
+              onClick={loadOpportunities}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -181,7 +192,7 @@ export default function OpportunitiesPage() {
             <Filter className="h-5 w-5 text-muted-foreground" />
             <h2 className="text-lg font-semibold">Filters</h2>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Type Filter */}
             <div>
@@ -274,7 +285,7 @@ export default function OpportunitiesPage() {
                 ) : (
                   opportunities.map((opp) => {
                     const ageBadge = getAgeBadge(opp.data_age_seconds);
-                    
+
                     return (
                       <tr key={opp.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
@@ -398,7 +409,11 @@ export default function OpportunitiesPage() {
           onSuccess={handleBetSuccess}
         />
       )}
+
+      {/* Config Modal */}
+      {showConfigModal && (
+        <ConfigModal onClose={() => setShowConfigModal(false)} />
+      )}
     </div>
   );
 }
-

@@ -13,7 +13,7 @@ export default function OddsPage() {
   const params = useParams();
   const sport = params?.sport as string || 'basketball_nba';
   const setFilters = useOddsStore((state) => state.setFilters);
-  
+
   // Enable alerts
   useAlerts({
     minEdge: 0,           // Any +EV
@@ -22,24 +22,24 @@ export default function OddsPage() {
     enableSlack: true,    // Send to Slack if configured
     enableBrowser: false, // Browser notifications disabled by default
   });
-  
+
   // Set sport filter on mount
   useEffect(() => {
     setFilters({ sport });
   }, [sport, setFilters]);
-  
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <FilterBar />
-      
+
       <div className="container px-4 py-6">
         <div className="flex gap-6">
           {/* Main content */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <OddsTable />
           </div>
-          
+
           {/* Sidebar */}
           <div className="w-80 shrink-0">
             <TopEdgesSidebar />

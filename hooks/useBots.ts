@@ -54,7 +54,8 @@ export function useBots() {
     return () => {
       clearInterval(interval);
     };
-  }, [refresh, updateBots, updateRecentBets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount - updateBots and updateRecentBets are stable callbacks
 
   return {
     bots,
