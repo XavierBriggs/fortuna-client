@@ -4,6 +4,18 @@ import { useEffect, useState } from 'react';
 import { minervaAPI, Game, PlayerStats } from '@/lib/minerva-api';
 import { X } from 'lucide-react';
 
+// Helper to extract number from Go's sql.Null* types
+function getNumber(val: number | { Int32?: number; Float64?: number; Valid: boolean } | undefined | null): number {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object' && 'Valid' in val) {
+    if (!val.Valid) return 0;
+    if ('Int32' in val && val.Int32 !== undefined) return val.Int32;
+    if ('Float64' in val && val.Float64 !== undefined) return val.Float64;
+  }
+  return 0;
+}
+
 interface BoxScoreModalProps {
   gameId: string | number;
   onClose: () => void;
@@ -55,7 +67,7 @@ export function BoxScoreModal({ gameId, onClose }: BoxScoreModalProps) {
     // Sort by starter status and minutes played
     const sortedStats = [...stats].sort((a, b) => {
       if (a.starter !== b.starter) return a.starter ? -1 : 1;
-      return (b.minutes_played || 0) - (a.minutes_played || 0);
+      return getNumber(b.minutes_played) - getNumber(a.minutes_played);
     });
 
     return (
@@ -94,15 +106,17 @@ export function BoxScoreModal({ gameId, onClose }: BoxScoreModalProps) {
                 </tr>
               ) : (
                 sortedStats.map((stat, idx) => {
-                  const fgPct = stat.field_goals_attempted && stat.field_goals_attempted > 0
-                    ? ((stat.field_goals_made || 0) / stat.field_goals_attempted * 100).toFixed(1)
-                    : '-';
-                  const threePct = stat.three_pointers_attempted && stat.three_pointers_attempted > 0
-                    ? ((stat.three_pointers_made || 0) / stat.three_pointers_attempted * 100).toFixed(1)
-                    : '-';
-                  const ftPct = stat.free_throws_attempted && stat.free_throws_attempted > 0
-                    ? ((stat.free_throws_made || 0) / stat.free_throws_attempted * 100).toFixed(1)
-                    : '-';
+                  const fga = getNumber(stat.field_goals_attempted);
+                  const fgm = getNumber(stat.field_goals_made);
+                  const tpa = getNumber(stat.three_pointers_attempted);
+                  const tpm = getNumber(stat.three_pointers_made);
+                  const fta = getNumber(stat.free_throws_attempted);
+                  const ftm = getNumber(stat.free_throws_made);
+                  const plusMinus = getNumber(stat.plus_minus);
+                  
+                  const fgPct = fga > 0 ? ((fgm / fga) * 100).toFixed(1) : '-';
+                  const threePct = tpa > 0 ? ((tpm / tpa) * 100).toFixed(1) : '-';
+                  const ftPct = fta > 0 ? ((ftm / fta) * 100).toFixed(1) : '-';
 
                   return (
                     <tr 
@@ -119,29 +133,23 @@ export function BoxScoreModal({ gameId, onClose }: BoxScoreModalProps) {
                           <span className="font-semibold">Player {stat.player_id}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-center">{stat.minutes_played?.toFixed(0) || 0}</td>
-                      <td className="px-3 py-3 text-center font-bold">{stat.points || 0}</td>
-                      <td className="px-3 py-3 text-center">{stat.rebounds || 0}</td>
-                      <td className="px-3 py-3 text-center">{stat.assists || 0}</td>
-                      <td className="px-3 py-3 text-center">
-                        {stat.field_goals_made || 0}-{stat.field_goals_attempted || 0}
-                      </td>
+                      <td className="px-3 py-3 text-center">{getNumber(stat.minutes_played).toFixed(0)}</td>
+                      <td className="px-3 py-3 text-center font-bold">{getNumber(stat.points)}</td>
+                      <td className="px-3 py-3 text-center">{getNumber(stat.rebounds)}</td>
+                      <td className="px-3 py-3 text-center">{getNumber(stat.assists)}</td>
+                      <td className="px-3 py-3 text-center">{fgm}-{fga}</td>
                       <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400">{fgPct}</td>
-                      <td className="px-3 py-3 text-center">
-                        {stat.three_pointers_made || 0}-{stat.three_pointers_attempted || 0}
-                      </td>
+                      <td className="px-3 py-3 text-center">{tpm}-{tpa}</td>
                       <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400">{threePct}</td>
-                      <td className="px-3 py-3 text-center">
-                        {stat.free_throws_made || 0}-{stat.free_throws_attempted || 0}
-                      </td>
+                      <td className="px-3 py-3 text-center">{ftm}-{fta}</td>
                       <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400">{ftPct}</td>
-                      <td className="px-3 py-3 text-center">{stat.steals || 0}</td>
-                      <td className="px-3 py-3 text-center">{stat.blocks || 0}</td>
-                      <td className="px-3 py-3 text-center">{stat.turnovers || 0}</td>
+                      <td className="px-3 py-3 text-center">{getNumber(stat.steals)}</td>
+                      <td className="px-3 py-3 text-center">{getNumber(stat.blocks)}</td>
+                      <td className="px-3 py-3 text-center">{getNumber(stat.turnovers)}</td>
                       <td className={`px-3 py-3 text-center font-semibold ${
-                        (stat.plus_minus || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        plusMinus >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}>
-                        {stat.plus_minus && stat.plus_minus >= 0 ? '+' : ''}{stat.plus_minus || 0}
+                        {plusMinus >= 0 ? '+' : ''}{plusMinus}
                       </td>
                     </tr>
                   );
@@ -153,58 +161,58 @@ export function BoxScoreModal({ gameId, onClose }: BoxScoreModalProps) {
                 <tr>
                   <td className="px-3 py-3">TOTALS</td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.minutes_played || 0), 0).toFixed(0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.minutes_played), 0).toFixed(0)}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.points || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.points), 0)}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.rebounds || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.rebounds), 0)}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.assists || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.assists), 0)}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.field_goals_made || 0), 0)}-
-                    {sortedStats.reduce((sum, s) => sum + (s.field_goals_attempted || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.field_goals_made), 0)}-
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.field_goals_attempted), 0)}
                   </td>
                   <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400">
                     {(() => {
-                      const made = sortedStats.reduce((sum, s) => sum + (s.field_goals_made || 0), 0);
-                      const att = sortedStats.reduce((sum, s) => sum + (s.field_goals_attempted || 0), 0);
+                      const made = sortedStats.reduce((sum, s) => sum + getNumber(s.field_goals_made), 0);
+                      const att = sortedStats.reduce((sum, s) => sum + getNumber(s.field_goals_attempted), 0);
                       return att > 0 ? ((made / att) * 100).toFixed(1) : '-';
                     })()}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.three_pointers_made || 0), 0)}-
-                    {sortedStats.reduce((sum, s) => sum + (s.three_pointers_attempted || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.three_pointers_made), 0)}-
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.three_pointers_attempted), 0)}
                   </td>
                   <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400">
                     {(() => {
-                      const made = sortedStats.reduce((sum, s) => sum + (s.three_pointers_made || 0), 0);
-                      const att = sortedStats.reduce((sum, s) => sum + (s.three_pointers_attempted || 0), 0);
+                      const made = sortedStats.reduce((sum, s) => sum + getNumber(s.three_pointers_made), 0);
+                      const att = sortedStats.reduce((sum, s) => sum + getNumber(s.three_pointers_attempted), 0);
                       return att > 0 ? ((made / att) * 100).toFixed(1) : '-';
                     })()}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.free_throws_made || 0), 0)}-
-                    {sortedStats.reduce((sum, s) => sum + (s.free_throws_attempted || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.free_throws_made), 0)}-
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.free_throws_attempted), 0)}
                   </td>
                   <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400">
                     {(() => {
-                      const made = sortedStats.reduce((sum, s) => sum + (s.free_throws_made || 0), 0);
-                      const att = sortedStats.reduce((sum, s) => sum + (s.free_throws_attempted || 0), 0);
+                      const made = sortedStats.reduce((sum, s) => sum + getNumber(s.free_throws_made), 0);
+                      const att = sortedStats.reduce((sum, s) => sum + getNumber(s.free_throws_attempted), 0);
                       return att > 0 ? ((made / att) * 100).toFixed(1) : '-';
                     })()}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.steals || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.steals), 0)}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.blocks || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.blocks), 0)}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {sortedStats.reduce((sum, s) => sum + (s.turnovers || 0), 0)}
+                    {sortedStats.reduce((sum, s) => sum + getNumber(s.turnovers), 0)}
                   </td>
                   <td className="px-3 py-3 text-center">-</td>
                 </tr>

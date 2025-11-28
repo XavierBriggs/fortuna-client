@@ -63,8 +63,10 @@ export interface GameSummary {
 export interface Player {
   player_id: number;
   espn_player_id?: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  display_name?: string;
   position?: string;
   jersey_number?: string;
   height?: string;
@@ -74,7 +76,8 @@ export interface Player {
 }
 
 export interface PlayerStats {
-  game_id: string;
+  id?: number;
+  game_id: string | number;
   player_id: number;
   team_id: number;
   points?: number;
@@ -89,9 +92,32 @@ export interface PlayerStats {
   three_pointers_attempted?: number;
   free_throws_made?: number;
   free_throws_attempted?: number;
-  minutes_played?: number;
-  plus_minus?: number;
+  offensive_rebounds?: number;
+  defensive_rebounds?: number;
+  personal_fouls?: number;
+  minutes_played?: number | { Float64: number; Valid: boolean };
+  plus_minus?: number | { Int32: number; Valid: boolean };
   starter: boolean;
+  // Advanced stats (may be nullable objects)
+  true_shooting_pct?: number | { Float64: number; Valid: boolean };
+  effective_fg_pct?: number | { Float64: number; Valid: boolean };
+  usage_rate?: number | { Float64: number; Valid: boolean };
+  player_efficiency_rating?: number | { Float64: number; Valid: boolean };
+  game_score?: number | { Float64: number; Valid: boolean };
+  offensive_rating?: number | { Float64: number; Valid: boolean };
+  defensive_rating?: number | { Float64: number; Valid: boolean };
+  net_rating?: number | { Float64: number; Valid: boolean };
+  // Enriched game context fields
+  game_date?: string;
+  opponent_team_id?: number;
+  opponent_abbr?: string;
+  opponent_name?: string;
+  is_home?: boolean;
+  home_score?: number;
+  away_score?: number;
+  result?: 'W' | 'L';
+  // For PlayerStatsLookup component
+  game?: Game;
 }
 
 export interface PlayerSeasonAverages {
@@ -232,6 +258,14 @@ class MinervaAPI {
   async getLiveGames(): Promise<Game[]> {
     const response = await fetch(`${this.baseUrl}/games/live`);
     if (!response.ok) throw new Error('Failed to fetch live games');
+    const data = await response.json();
+    const summaries = normalizeArray<GameSummary>(data, 'games');
+    return summaries.map(s => this.flattenGameSummary(s));
+  }
+
+  async getTodaysGames(): Promise<Game[]> {
+    const response = await fetch(`${this.baseUrl}/games/today`);
+    if (!response.ok) throw new Error('Failed to fetch today\'s games');
     const data = await response.json();
     const summaries = normalizeArray<GameSummary>(data, 'games');
     return summaries.map(s => this.flattenGameSummary(s));

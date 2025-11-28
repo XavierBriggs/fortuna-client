@@ -60,7 +60,7 @@ export async function fetchMarkets(sportKey: string): Promise<Market[]> {
 // Fetch events (for initial load)
 export async function fetchEvents(sportKey: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/events?sport=${sportKey}&limit=100`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/events?sport=${sportKey}`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

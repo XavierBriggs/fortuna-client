@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, TrendingUp, BarChart3, Target, Home, DollarSign, Settings, Radio, Users } from 'lucide-react';
+import { Activity, TrendingUp, BarChart3, Target, Home, DollarSign, Settings, Radio, Users, Zap, PieChart } from 'lucide-react';
 import { ConnectionStatus } from '@/components/shared/ConnectionStatus';
 
 export default function Navbar() {
@@ -14,10 +14,11 @@ export default function Navbar() {
     { href: '/', label: 'Bots', icon: Home },
     { href: '/odds/basketball_nba', label: 'Live Odds', icon: BarChart3 },
     { href: '/opportunities', label: 'Opportunities', icon: Target },
-    { href: '/minerva', label: 'NBA Analytics', icon: Radio },
+    { href: '/auto-betting', label: 'Auto Betting', icon: Zap },
+    { href: '/analytics', label: 'Analytics', icon: PieChart },
+    { href: '/minerva', label: 'NBA Stats', icon: Radio },
     { href: '/bets', label: 'Bets', icon: DollarSign },
     { href: '/settings', label: 'Settings', icon: Settings },
-    { href: '/debug/raw-odds', label: 'Debug', icon: TrendingUp },
   ];
 
   return (

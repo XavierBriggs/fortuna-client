@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import { minervaAPI, Team } from '@/lib/minerva-api';
-import { Loader2, Search, Users } from 'lucide-react';
+import { Loader2, Search, Users, ChevronRight, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TeamsPage() {
@@ -81,75 +81,83 @@ export default function TeamsPage() {
     return '';
   };
 
-  // Group teams by conference
+  // Group teams by division
+  const groupByDivision = (teamList: Team[]) => {
+    const divisions: Record<string, Team[]> = {};
+    teamList.forEach(team => {
+      const division = getDivision(team) || 'Other';
+      if (!divisions[division]) divisions[division] = [];
+      divisions[division].push(team);
+    });
+    return divisions;
+  };
+
   const easternTeams = filteredTeams.filter(t => getConference(t) === 'Eastern');
   const westernTeams = filteredTeams.filter(t => getConference(t) === 'Western');
+
+  const easternDivisions = groupByDivision(easternTeams);
+  const westernDivisions = groupByDivision(westernTeams);
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+          <Link href="/minerva" className="hover:text-foreground transition-colors flex items-center gap-1">
+            <ArrowLeft className="h-4 w-4" />
+            NBA Analytics
+          </Link>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground">Teams</span>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Users className="h-10 w-10 text-primary" />
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Users className="h-7 w-7 text-white" />
+            </div>
             <div>
-              <h1 className="text-4xl font-bold">NBA Teams</h1>
-              <p className="text-muted-foreground text-lg">
-                Browse all {teams.length} teams
+              <h1 className="text-3xl font-bold tracking-tight">NBA Teams</h1>
+              <p className="text-muted-foreground">
+                Browse all {teams.length} teams · View rosters and schedules
               </p>
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-card border border-border rounded-lg p-6 mb-8">
+        <div className="bg-card border border-border rounded-xl p-5 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search teams..."
+                placeholder="Search teams by name or city..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
             {/* Conference Filter */}
             <div className="flex gap-2">
-              <button
-                onClick={() => setConferenceFilter('all')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  conferenceFilter === 'all'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background border border-border hover:bg-muted'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setConferenceFilter('Eastern')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  conferenceFilter === 'Eastern'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background border border-border hover:bg-muted'
-                }`}
-              >
-                Eastern
-              </button>
-              <button
-                onClick={() => setConferenceFilter('Western')}
-                className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  conferenceFilter === 'Western'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background border border-border hover:bg-muted'
-                }`}
-              >
-                Western
-              </button>
+              {(['all', 'Eastern', 'Western'] as const).map((conf) => (
+                <button
+                  key={conf}
+                  onClick={() => setConferenceFilter(conf)}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                    conferenceFilter === conf
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-background border border-border hover:bg-muted'
+                  }`}
+                >
+                  {conf === 'all' ? 'All Teams' : `${conf} Conference`}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -160,93 +168,114 @@ export default function TeamsPage() {
             <p className="text-muted-foreground">Loading teams...</p>
           </div>
         ) : (
-          <div className="space-y-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Eastern Conference */}
-            {(conferenceFilter === 'all' || conferenceFilter === 'Eastern') && easternTeams.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                  <span className="text-blue-500">🏀</span>
-                  Eastern Conference
-                  <span className="text-sm text-muted-foreground font-normal">({easternTeams.length} teams)</span>
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {easternTeams.map(team => (
-                    <Link
-                      key={team.team_id}
-                      href={`/minerva/teams/${team.team_id}`}
-                      className="bg-card border border-border rounded-lg p-6 hover:border-primary hover:shadow-lg transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
-                            {team.full_name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {getCity(team)} • {team.abbreviation}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="px-2 py-1 bg-muted rounded text-xs font-medium">
-                          {getDivision(team) || 'NBA'}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+            {(conferenceFilter === 'all' || conferenceFilter === 'Eastern') && Object.keys(easternDivisions).length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <h2 className="text-xl font-bold">Eastern Conference</h2>
+                  <span className="text-sm text-muted-foreground">({easternTeams.length} teams)</span>
                 </div>
+
+                {Object.entries(easternDivisions).sort().map(([division, divTeams]) => (
+                  <div key={division} className="bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 bg-muted/50 border-b border-border">
+                      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                        {division} Division
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {divTeams.map(team => (
+                        <Link
+                          key={team.team_id}
+                          href={`/minerva/teams/${team.team_id}`}
+                          className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                              <span className="font-bold text-primary">{team.abbreviation}</span>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold group-hover:text-primary transition-colors">
+                                {team.full_name}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">
+                                {getCity(team)}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
             {/* Western Conference */}
-            {(conferenceFilter === 'all' || conferenceFilter === 'Western') && westernTeams.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                  <span className="text-red-500">🏀</span>
-                  Western Conference
-                  <span className="text-sm text-muted-foreground font-normal">({westernTeams.length} teams)</span>
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {westernTeams.map(team => (
-                    <Link
-                      key={team.team_id}
-                      href={`/minerva/teams/${team.team_id}`}
-                      className="bg-card border border-border rounded-lg p-6 hover:border-primary hover:shadow-lg transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
-                            {team.full_name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {getCity(team)} • {team.abbreviation}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span className="px-2 py-1 bg-muted rounded text-xs font-medium">
-                          {getDivision(team) || 'NBA'}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+            {(conferenceFilter === 'all' || conferenceFilter === 'Western') && Object.keys(westernDivisions).length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <h2 className="text-xl font-bold">Western Conference</h2>
+                  <span className="text-sm text-muted-foreground">({westernTeams.length} teams)</span>
                 </div>
-              </div>
-            )}
 
-            {/* No Results */}
-            {filteredTeams.length === 0 && (
-              <div className="text-center py-20">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-xl font-semibold mb-2">No teams found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filters</p>
+                {Object.entries(westernDivisions).sort().map(([division, divTeams]) => (
+                  <div key={division} className="bg-card border border-border rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 bg-muted/50 border-b border-border">
+                      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                        {division} Division
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-border">
+                      {divTeams.map(team => (
+                        <Link
+                          key={team.team_id}
+                          href={`/minerva/teams/${team.team_id}`}
+                          className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                              <span className="font-bold text-primary">{team.abbreviation}</span>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold group-hover:text-primary transition-colors">
+                                {team.full_name}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">
+                                {getCity(team)}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* No Results */}
+        {!loading && filteredTeams.length === 0 && (
+          <div className="text-center py-20 bg-card border border-border rounded-xl">
+            <div className="text-6xl mb-4">🔍</div>
+            <h3 className="text-xl font-semibold mb-2">No teams found</h3>
+            <p className="text-muted-foreground mb-4">Try adjusting your search or filters</p>
+            <button
+              onClick={() => { setSearchQuery(''); setConferenceFilter('all'); }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Clear Filters
+            </button>
           </div>
         )}
       </div>
     </div>
   );
 }
-
-
-

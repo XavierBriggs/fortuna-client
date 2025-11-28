@@ -67,23 +67,13 @@ export function PlayerStatsLookup() {
 
     try {
       // Get player's recent games (last 50)
+      // The API returns enriched stats with game_date, opponent_abbr, etc.
       const stats = await minervaAPI.getPlayerStats(player.player_id, 50);
       
-      // Get game details for each stat
-      const statsWithGames = await Promise.all(
-        stats.map(async (stat) => {
-          try {
-            const game = await minervaAPI.getGame(stat.game_id.toString());
-            return { ...stat, game };
-          } catch (error) {
-            console.error(`Failed to fetch game ${stat.game_id}:`, error);
-            return stat;
-          }
-        })
-      );
-
-      setPlayerGames(statsWithGames);
-      setFilteredGames(statsWithGames);
+      // Stats already have enriched game data (game_date, opponent_abbr, is_home, result, etc.)
+      // No need to fetch individual games
+      setPlayerGames(stats);
+      setFilteredGames(stats);
     } catch (error) {
       console.error('Failed to load player games:', error);
       setPlayerGames([]);
@@ -109,8 +99,10 @@ export function PlayerStatsLookup() {
     }
 
     const filtered = playerGames.filter(stat => {
-      if (!stat.game?.game_date) return false;
-      const gameDate = new Date(stat.game.game_date);
+      // Use enriched game_date directly, fallback to stat.game?.game_date
+      const dateStr = stat.game_date || stat.game?.game_date;
+      if (!dateStr) return false;
+      const gameDate = new Date(dateStr);
       
       if (startDate && endDate) {
         return gameDate >= new Date(startDate) && gameDate <= new Date(endDate);
@@ -151,19 +143,19 @@ export function PlayerStatsLookup() {
     if (games.length === 0) return null;
     
     const totals = games.reduce((acc, stat) => ({
-      points: acc.points + (stat.points || 0),
-      rebounds: acc.rebounds + (stat.rebounds || 0),
-      assists: acc.assists + (stat.assists || 0),
-      steals: acc.steals + (stat.steals || 0),
-      blocks: acc.blocks + (stat.blocks || 0),
-      turnovers: acc.turnovers + (stat.turnovers || 0),
-      fgm: acc.fgm + (stat.field_goals_made || 0),
-      fga: acc.fga + (stat.field_goals_attempted || 0),
-      tpm: acc.tpm + (stat.three_pointers_made || 0),
-      tpa: acc.tpa + (stat.three_pointers_attempted || 0),
-      ftm: acc.ftm + (stat.free_throws_made || 0),
-      fta: acc.fta + (stat.free_throws_attempted || 0),
-      minutes: acc.minutes + (getNumber(stat.minutes_played) || 0),
+      points: acc.points + getNumber(stat.points),
+      rebounds: acc.rebounds + getNumber(stat.rebounds),
+      assists: acc.assists + getNumber(stat.assists),
+      steals: acc.steals + getNumber(stat.steals),
+      blocks: acc.blocks + getNumber(stat.blocks),
+      turnovers: acc.turnovers + getNumber(stat.turnovers),
+      fgm: acc.fgm + getNumber(stat.field_goals_made),
+      fga: acc.fga + getNumber(stat.field_goals_attempted),
+      tpm: acc.tpm + getNumber(stat.three_pointers_made),
+      tpa: acc.tpa + getNumber(stat.three_pointers_attempted),
+      ftm: acc.ftm + getNumber(stat.free_throws_made),
+      fta: acc.fta + getNumber(stat.free_throws_attempted),
+      minutes: acc.minutes + getNumber(stat.minutes_played),
     }), { points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0, turnovers: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, minutes: 0 });
 
     const count = games.length;
@@ -341,45 +333,57 @@ export function PlayerStatsLookup() {
 
               {/* Games List */}
               <div className="space-y-2 mb-6">
-                {filteredGames.map((stat, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedGame(stat)}
-                    className={`w-full p-4 rounded-lg border transition-colors text-left ${
-                      selectedGame === stat
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:bg-accent'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">
-                          {stat.game?.game_date ? formatDate(stat.game.game_date) : 'Unknown Date'}
-                        </span>
-                        <span className="font-semibold">
-                          {getOpponent(stat.game, stat.team_id)}
-                        </span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          stat.game?.status === 'final' 
-                            ? 'bg-gray-500 text-white' 
-                            : 'bg-blue-500 text-white'
-                        }`}>
-                          {stat.game?.status || 'Unknown'}
-                        </span>
+                {filteredGames.map((stat, index) => {
+                  // Use enriched fields directly from stat, fallback to stat.game for backwards compat
+                  const gameDate = stat.game_date || stat.game?.game_date;
+                  const opponentAbbr = stat.opponent_abbr || (stat.game ? getOpponent(stat.game, stat.team_id) : 'Unknown');
+                  const homeScore = stat.home_score ?? getNumber(stat.game?.home_score);
+                  const awayScore = stat.away_score ?? getNumber(stat.game?.away_score);
+                  const result = stat.result;
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedGame(stat)}
+                      className={`w-full p-4 rounded-lg border transition-colors text-left ${
+                        selectedGame === stat
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:bg-accent'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            {gameDate ? formatDate(gameDate) : 'Unknown Date'}
+                          </span>
+                          <span className="font-semibold">
+                            {stat.opponent_abbr ? `${stat.is_home ? 'vs' : '@'} ${stat.opponent_abbr}` : opponentAbbr}
+                          </span>
+                          {result && (
+                            <span className={`text-xs px-2 py-1 rounded font-bold ${
+                              result === 'W' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                            }`}>
+                              {result}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="font-bold text-lg">{getNumber(stat.points)} PTS</span>
+                          <span>{getNumber(stat.rebounds)} REB</span>
+                          <span>{getNumber(stat.assists)} AST</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="font-bold text-lg">{stat.points} PTS</span>
-                        <span>{stat.rebounds} REB</span>
-                        <span>{stat.assists} AST</span>
-                      </div>
-                    </div>
-                    {stat.game && (
-                      <div className="text-xs text-muted-foreground">
-                        Final: {stat.game.away_team?.abbreviation} {stat.game.away_score} - {stat.game.home_score} {stat.game.home_team?.abbreviation}
-                      </div>
-                    )}
-                  </button>
-                ))}
+                      {(homeScore > 0 || awayScore > 0) && (
+                        <div className="text-xs text-muted-foreground">
+                          {stat.is_home 
+                            ? `Final: ${homeScore} - ${awayScore}`
+                            : `Final: ${awayScore} - ${homeScore}`
+                          }
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Detailed Stats for Selected Game */}
@@ -387,7 +391,12 @@ export function PlayerStatsLookup() {
                 <div className="bg-accent/50 border border-border rounded-lg p-6">
                   <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <TrendingUp className="h-5 w-5" />
-                    Game Details - {selectedGame.game?.game_date ? formatDate(selectedGame.game.game_date) : 'Unknown Date'}
+                    Game Details - {selectedGame.game_date ? formatDate(selectedGame.game_date) : (selectedGame.game?.game_date ? formatDate(selectedGame.game.game_date) : 'Unknown Date')}
+                    {selectedGame.opponent_abbr && (
+                      <span className="text-muted-foreground font-normal">
+                        {selectedGame.is_home ? 'vs' : '@'} {selectedGame.opponent_abbr}
+                      </span>
+                    )}
                   </h4>
 
                   {/* Stats Tabs */}
@@ -429,34 +438,34 @@ export function PlayerStatsLookup() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Points</div>
-                        <div className="text-2xl font-bold">{selectedGame.points}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.points)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Rebounds</div>
-                        <div className="text-2xl font-bold">{selectedGame.rebounds}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.rebounds)}</div>
                         <div className="text-xs text-muted-foreground">
-                          {selectedGame.offensive_rebounds} OR • {selectedGame.defensive_rebounds} DR
+                          {getNumber(selectedGame.offensive_rebounds)} OR • {getNumber(selectedGame.defensive_rebounds)} DR
                         </div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Assists</div>
-                        <div className="text-2xl font-bold">{selectedGame.assists}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.assists)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Steals</div>
-                        <div className="text-2xl font-bold">{selectedGame.steals}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.steals)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Blocks</div>
-                        <div className="text-2xl font-bold">{selectedGame.blocks}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.blocks)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Turnovers</div>
-                        <div className="text-2xl font-bold">{selectedGame.turnovers}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.turnovers)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Fouls</div>
-                        <div className="text-2xl font-bold">{selectedGame.personal_fouls}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.personal_fouls)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Minutes</div>
@@ -465,10 +474,10 @@ export function PlayerStatsLookup() {
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">+/-</div>
                         <div className={`text-2xl font-bold ${
-                          (selectedGame.plus_minus || 0) > 0 ? 'text-green-500' : 
-                          (selectedGame.plus_minus || 0) < 0 ? 'text-red-500' : ''
+                          getNumber(selectedGame.plus_minus) > 0 ? 'text-green-500' : 
+                          getNumber(selectedGame.plus_minus) < 0 ? 'text-red-500' : ''
                         }`}>
-                          {selectedGame.plus_minus > 0 ? '+' : ''}{selectedGame.plus_minus || 0}
+                          {getNumber(selectedGame.plus_minus) > 0 ? '+' : ''}{getNumber(selectedGame.plus_minus)}
                         </div>
                       </div>
                     </div>
@@ -480,54 +489,54 @@ export function PlayerStatsLookup() {
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Field Goals</div>
                         <div className="text-2xl font-bold">
-                          {selectedGame.field_goals_made}-{selectedGame.field_goals_attempted}
+                          {getNumber(selectedGame.field_goals_made)}-{getNumber(selectedGame.field_goals_attempted)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {selectedGame.field_goals_attempted > 0 
-                            ? ((selectedGame.field_goals_made / selectedGame.field_goals_attempted) * 100).toFixed(1) 
+                          {getNumber(selectedGame.field_goals_attempted) > 0 
+                            ? ((getNumber(selectedGame.field_goals_made) / getNumber(selectedGame.field_goals_attempted)) * 100).toFixed(1) 
                             : '0.0'}%
                         </div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">3-Pointers</div>
                         <div className="text-2xl font-bold">
-                          {selectedGame.three_pointers_made}-{selectedGame.three_pointers_attempted}
+                          {getNumber(selectedGame.three_pointers_made)}-{getNumber(selectedGame.three_pointers_attempted)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {selectedGame.three_pointers_attempted > 0 
-                            ? ((selectedGame.three_pointers_made / selectedGame.three_pointers_attempted) * 100).toFixed(1) 
+                          {getNumber(selectedGame.three_pointers_attempted) > 0 
+                            ? ((getNumber(selectedGame.three_pointers_made) / getNumber(selectedGame.three_pointers_attempted)) * 100).toFixed(1) 
                             : '0.0'}%
                         </div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Free Throws</div>
                         <div className="text-2xl font-bold">
-                          {selectedGame.free_throws_made}-{selectedGame.free_throws_attempted}
+                          {getNumber(selectedGame.free_throws_made)}-{getNumber(selectedGame.free_throws_attempted)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {selectedGame.free_throws_attempted > 0 
-                            ? ((selectedGame.free_throws_made / selectedGame.free_throws_attempted) * 100).toFixed(1) 
+                          {getNumber(selectedGame.free_throws_attempted) > 0 
+                            ? ((getNumber(selectedGame.free_throws_made) / getNumber(selectedGame.free_throws_attempted)) * 100).toFixed(1) 
                             : '0.0'}%
                         </div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">2-Pointers</div>
                         <div className="text-2xl font-bold">
-                          {selectedGame.field_goals_made - selectedGame.three_pointers_made}-{selectedGame.field_goals_attempted - selectedGame.three_pointers_attempted}
+                          {getNumber(selectedGame.field_goals_made) - getNumber(selectedGame.three_pointers_made)}-{getNumber(selectedGame.field_goals_attempted) - getNumber(selectedGame.three_pointers_attempted)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {(selectedGame.field_goals_attempted - selectedGame.three_pointers_attempted) > 0 
-                            ? (((selectedGame.field_goals_made - selectedGame.three_pointers_made) / (selectedGame.field_goals_attempted - selectedGame.three_pointers_attempted)) * 100).toFixed(1) 
+                          {(getNumber(selectedGame.field_goals_attempted) - getNumber(selectedGame.three_pointers_attempted)) > 0 
+                            ? (((getNumber(selectedGame.field_goals_made) - getNumber(selectedGame.three_pointers_made)) / (getNumber(selectedGame.field_goals_attempted) - getNumber(selectedGame.three_pointers_attempted))) * 100).toFixed(1) 
                             : '0.0'}%
                         </div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Off Rebounds</div>
-                        <div className="text-2xl font-bold">{selectedGame.offensive_rebounds}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.offensive_rebounds)}</div>
                       </div>
                       <div className="bg-card p-4 rounded-lg">
                         <div className="text-sm text-muted-foreground mb-1">Def Rebounds</div>
-                        <div className="text-2xl font-bold">{selectedGame.defensive_rebounds}</div>
+                        <div className="text-2xl font-bold">{getNumber(selectedGame.defensive_rebounds)}</div>
                       </div>
                     </div>
                   )}

@@ -46,6 +46,7 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
   const [placingWithBot, setPlacingWithBot] = useState(false);
   const [botResult, setBotResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [stakeEditMode, setStakeEditMode] = useState<'suggested' | 'manual'>('suggested');
   const [manualStakes, setManualStakes] = useState<Record<string, number>>({});
 
@@ -56,8 +57,9 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
 
   const loadSettingsAndCalculate = async () => {
     try {
-      // Clear any previous errors
+      // Clear any previous errors and warnings
       setError(null);
+      setWarning(null);
       const userSettings = await getSettings();
       setSettings(userSettings);
       await calculateStakes(userSettings);
@@ -99,7 +101,7 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
 
       // Warn if book has zero bankroll
       if (bookBankroll === 0 && userSettings) {
-        setError(`Warning: ${bookKey} bankroll is $0. Please update in Settings.`);
+        setWarning(`⚠️ ${bookKey} bankroll is $0. Please update in Settings.`);
       }
 
       const requestBody = {
@@ -449,6 +451,17 @@ export default function QuickBetModal({ opportunity, bankroll, onClose, onSucces
               <div>
                 <p className="font-semibold">Calculation Error</p>
                 <p className="text-sm mt-1">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Warning State (non-blocking) */}
+          {warning && !error && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-lg flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">Warning</p>
+                <p className="text-sm mt-1">{warning}</p>
               </div>
             </div>
           )}
