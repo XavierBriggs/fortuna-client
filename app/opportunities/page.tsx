@@ -19,6 +19,7 @@ export default function OpportunitiesPage() {
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('basketball_nba');
+  const [gameStatusFilter, setGameStatusFilter] = useState<string>('all');
   const [minEdge, setMinEdge] = useState<number>(1.0);
 
   // Load opportunities
@@ -38,8 +39,15 @@ export default function OpportunitiesPage() {
 
       const data = await getOpportunities(params);
 
-      // Filter by min edge on client side
-      const filtered = data.filter(opp => opp.edge_pct >= minEdge);
+      // Filter by min edge and game status on client side
+      const filtered = data.filter(opp => {
+        if (opp.edge_pct < minEdge) return false;
+        if (gameStatusFilter !== 'all') {
+          if (gameStatusFilter === 'live' && opp.event_status !== 'live') return false;
+          if (gameStatusFilter === 'pregame' && opp.event_status === 'live') return false;
+        }
+        return true;
+      });
 
       // Deduplicate opportunities based on key characteristics
       const deduplicated = filtered.reduce((acc, opp) => {
@@ -88,7 +96,7 @@ export default function OpportunitiesPage() {
     const interval = setInterval(loadOpportunities, 10000);
 
     return () => clearInterval(interval);
-  }, [typeFilter, sportFilter, minEdge]);
+  }, [typeFilter, sportFilter, gameStatusFilter, minEdge]);
 
   // Handle Bet button click
   const handleBetClick = (opp: Opportunity) => {
@@ -148,6 +156,21 @@ export default function OpportunitiesPage() {
     return { color: 'bg-red-500', emoji: '🔴' };
   };
 
+  const getGameStatusBadge = (eventStatus?: string) => {
+    if (eventStatus === 'live') {
+      return {
+        label: 'LIVE',
+        color: 'bg-red-500/10 text-red-500 border-red-500/20',
+        emoji: '🔴'
+      };
+    }
+    return {
+      label: 'PREGAME',
+      color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      emoji: '🔵'
+    };
+  };
+
   const formatOdds = (odds: number) => {
     return odds > 0 ? `+${odds}` : `${odds}`;
   };
@@ -193,7 +216,7 @@ export default function OpportunitiesPage() {
             <h2 className="text-lg font-semibold">Filters</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Type Filter */}
             <div>
               <label className="block text-sm font-medium mb-2">Type</label>
@@ -220,6 +243,20 @@ export default function OpportunitiesPage() {
                 <option value="basketball_nba">NBA</option>
                 <option value="american_football_nfl">NFL</option>
                 <option value="baseball_mlb">MLB</option>
+              </select>
+            </div>
+
+            {/* Game Status Filter */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Game Status</label>
+              <select
+                value={gameStatusFilter}
+                onChange={(e) => setGameStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+              >
+                <option value="all">All Games</option>
+                <option value="live">🔴 Live Only</option>
+                <option value="pregame">🔵 Pregame Only</option>
               </select>
             </div>
 
@@ -285,13 +322,20 @@ export default function OpportunitiesPage() {
                 ) : (
                   opportunities.map((opp) => {
                     const ageBadge = getAgeBadge(opp.data_age_seconds);
+                    const gameStatus = getGameStatusBadge(opp.event_status);
 
                     return (
                       <tr key={opp.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
-                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getTypeColor(opp.opportunity_type)}`}>
-                            {getTypeIcon(opp.opportunity_type)}
-                            <span className="text-sm font-semibold uppercase">{opp.opportunity_type}</span>
+                          <div className="flex flex-col gap-2">
+                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getTypeColor(opp.opportunity_type)}`}>
+                              {getTypeIcon(opp.opportunity_type)}
+                              <span className="text-sm font-semibold uppercase">{opp.opportunity_type}</span>
+                            </div>
+                            <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${gameStatus.color} w-fit`}>
+                              <span>{gameStatus.emoji}</span>
+                              <span>{gameStatus.label}</span>
+                            </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">

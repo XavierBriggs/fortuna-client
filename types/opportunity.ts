@@ -14,6 +14,7 @@ export interface Opportunity {
   opportunity_type: OpportunityType;
   sport_key: string;
   event_id: string;
+  event_status?: string; // "upcoming" (pregame) or "live"
   market_key: string;
   edge_pct: number;
   fair_price?: number;

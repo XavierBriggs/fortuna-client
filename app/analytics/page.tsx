@@ -87,6 +87,21 @@ const CHART_COLORS = [
   COLORS.indigo,
 ];
 
+// Format seconds to human-readable hold time (e.g., "12m 17s")
+function formatHoldTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) {
+    return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
 // Metric Card Component
 function MetricCard({ 
   title, 
@@ -188,6 +203,21 @@ function SectionHeader({ title, icon: Icon, action }: { title: string; icon: any
   );
 }
 
+// Game Status Filter Component
+function GameStatusFilter({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-3 py-1.5 text-sm bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
+    >
+      <option value="">All Games</option>
+      <option value="upcoming">🔵 Pregame Only</option>
+      <option value="live">🔴 Live Only</option>
+    </select>
+  );
+}
+
 // Custom Tooltip for Charts
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -225,10 +255,11 @@ export default function AnalyticsPage() {
   // Filters
   const [timeRange, setTimeRange] = useState<number>(24);
   const [selectedType, setSelectedType] = useState<string>('');
+  const [gameStatusFilter, setGameStatusFilter] = useState<string>(''); // '' = all, 'live', 'upcoming'
 
   useEffect(() => {
     loadData();
-  }, [timeRange, selectedType]);
+  }, [timeRange, selectedType, gameStatusFilter]);
 
   const loadData = async () => {
     setLoading(true);
@@ -239,14 +270,15 @@ export default function AnalyticsPage() {
       const options = {
         ...hoursOrDays,
         type: selectedType || undefined,
+        game_status: gameStatusFilter || undefined,
       };
 
       const [summaryData, timeSeriesData, bookStatsData, scalpPairsData, middlePairsData, pairPerformanceData, opportunityCLVData] = await Promise.all([
         fetchStatsSummary(options).catch(() => null),
         fetchTimeSeries(options).catch(() => ({ points: [] })),
         fetchBookStats(options).catch(() => ({})),
-        fetchScalpPairs({ ...hoursOrDays, limit: 10 }).catch(() => []),
-        fetchMiddlePairs({ ...hoursOrDays, limit: 10 }).catch(() => []),
+        fetchScalpPairs({ ...hoursOrDays, limit: 10, game_status: gameStatusFilter || undefined }).catch(() => []),
+        fetchMiddlePairs({ ...hoursOrDays, limit: 10, game_status: gameStatusFilter || undefined }).catch(() => []),
         fetchPairPerformance({ limit: 20 }).catch(() => ({ pairs: [], recommendations: [] })),
         fetchOpportunityCLV({ ...hoursOrDays, timeseries: true }).catch(() => null),
       ]);
@@ -462,6 +494,12 @@ export default function AnalyticsPage() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <>
+            {/* Filter Bar */}
+            <div className="flex items-center justify-end gap-3 mb-6 p-4 bg-card/50 border border-border rounded-lg">
+              <span className="text-sm text-muted-foreground">Game Status:</span>
+              <GameStatusFilter value={gameStatusFilter} onChange={setGameStatusFilter} />
+            </div>
+
             {/* Key Metrics Grid */}
         {summary && (
               <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
@@ -618,6 +656,12 @@ export default function AnalyticsPage() {
         {/* Books Tab */}
         {activeTab === 'books' && (
           <>
+            {/* Filter Bar */}
+            <div className="flex items-center justify-end gap-3 mb-6 p-4 bg-card/50 border border-border rounded-lg">
+              <span className="text-sm text-muted-foreground">Game Status:</span>
+              <GameStatusFilter value={gameStatusFilter} onChange={setGameStatusFilter} />
+            </div>
+
             {/* Profit by Book Chart */}
             <div className="bg-card border border-border rounded-xl p-5 mb-6">
               <SectionHeader title="Net Profit by Book" icon={DollarSign} />
@@ -664,7 +708,9 @@ export default function AnalyticsPage() {
                   <thead className="bg-muted/30">
                     <tr className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       <th className="px-5 py-3">Book</th>
-                      <th className="px-5 py-3 text-right">Opportunities</th>
+                      <th className="px-5 py-3 text-right">Live</th>
+                      <th className="px-5 py-3 text-right">Pregame</th>
+                      <th className="px-5 py-3 text-right">Total</th>
                       <th className="px-5 py-3 text-right">Avg Edge</th>
                       <th className="px-5 py-3 text-right">Edge Range</th>
                       <th className="px-5 py-3 text-right">Bets</th>
@@ -689,7 +735,17 @@ export default function AnalyticsPage() {
                                 {book.replace(/_/g, ' ')}
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-right font-mono text-sm">
+                            <td className="px-5 py-4 text-right">
+                              <span className="font-mono text-sm text-red-500">
+                                {stats.live_opportunities?.toLocaleString() || 0}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              <span className="font-mono text-sm text-blue-500">
+                                {stats.pregame_opportunities?.toLocaleString() || 0}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right font-mono text-sm font-semibold">
                               {stats.opportunity_count.toLocaleString()}
                             </td>
                             <td className="px-5 py-4 text-right">
@@ -748,6 +804,13 @@ export default function AnalyticsPage() {
 
         {/* Book Pairs Tab */}
         {activeTab === 'pairs' && (
+          <>
+            {/* Filter Bar */}
+            <div className="flex items-center justify-end gap-3 mb-6 p-4 bg-card/50 border border-border rounded-lg">
+              <span className="text-sm text-muted-foreground">Game Status:</span>
+              <GameStatusFilter value={gameStatusFilter} onChange={setGameStatusFilter} />
+            </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Best Scalp Pairs */}
             <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -778,11 +841,23 @@ export default function AnalyticsPage() {
                             {pair.book_key_2.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium">
-                          {pair.total_opportunities} opps
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {pair.live_opportunities > 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium" title="Live opportunities">
+                              {pair.live_opportunities} live
+                            </span>
+                          )}
+                          {pair.pregame_opportunities > 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-medium" title="Pregame opportunities">
+                              {pair.pregame_opportunities} pregame
+                            </span>
+                          )}
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-medium" title="Total opportunities">
+                            {pair.total_opportunities} total
+                          </span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-4 gap-3 text-xs">
+                      <div className="grid grid-cols-5 gap-3 text-xs">
                         <div>
                           <span className="text-muted-foreground">Avg Edge</span>
                           <p className="font-semibold text-emerald-500">{pair.avg_edge_pct.toFixed(2)}%</p>
@@ -790,6 +865,13 @@ export default function AnalyticsPage() {
                         <div>
                           <span className="text-muted-foreground">Best Edge</span>
                           <p className="font-semibold text-foreground">{pair.best_edge_pct.toFixed(2)}%</p>
+                        </div>
+                        <div 
+                          className="cursor-help"
+                          title={`Min: ${formatHoldTime(pair.min_hold_time_seconds || 0)} | Max: ${formatHoldTime(pair.max_hold_time_seconds || 0)}`}
+                        >
+                          <span className="text-muted-foreground">Hold Time</span>
+                          <p className="font-semibold text-amber-500">{formatHoldTime(pair.avg_hold_time_seconds || 0)}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">ROI</span>
@@ -844,11 +926,23 @@ export default function AnalyticsPage() {
                             {pair.book_key_2.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-medium">
-                          {pair.total_opportunities} opps
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {pair.live_opportunities > 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium" title="Live opportunities">
+                              {pair.live_opportunities} live
+                            </span>
+                          )}
+                          {pair.pregame_opportunities > 0 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-medium" title="Pregame opportunities">
+                              {pair.pregame_opportunities} pregame
+                            </span>
+                          )}
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-medium" title="Total opportunities">
+                            {pair.total_opportunities} total
+                          </span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-4 gap-3 text-xs">
+                      <div className="grid grid-cols-5 gap-3 text-xs">
                         <div>
                           <span className="text-muted-foreground">Avg Edge</span>
                           <p className="font-semibold text-purple-500">{pair.avg_edge_pct.toFixed(2)}%</p>
@@ -856,6 +950,13 @@ export default function AnalyticsPage() {
                         <div>
                           <span className="text-muted-foreground">Best Edge</span>
                           <p className="font-semibold text-foreground">{pair.best_edge_pct.toFixed(2)}%</p>
+                        </div>
+                        <div 
+                          className="cursor-help"
+                          title={`Min: ${formatHoldTime(pair.min_hold_time_seconds || 0)} | Max: ${formatHoldTime(pair.max_hold_time_seconds || 0)}`}
+                        >
+                          <span className="text-muted-foreground">Hold Time</span>
+                          <p className="font-semibold text-amber-500">{formatHoldTime(pair.avg_hold_time_seconds || 0)}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">ROI</span>
@@ -1039,11 +1140,18 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+          </>
         )}
 
         {/* Timing Tab */}
         {activeTab === 'timing' && (
           <>
+            {/* Filter Bar */}
+            <div className="flex items-center justify-end gap-3 mb-6 p-4 bg-card/50 border border-border rounded-lg">
+              <span className="text-sm text-muted-foreground">Game Status:</span>
+              <GameStatusFilter value={gameStatusFilter} onChange={setGameStatusFilter} />
+            </div>
+
             {/* Timing Metrics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <MetricCard

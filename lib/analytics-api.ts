@@ -8,6 +8,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
 
 export interface BookStats {
   opportunity_count: number;
+  live_opportunities: number;    // Opportunities detected during live games
+  pregame_opportunities: number; // Opportunities detected before game start
   avg_edge_pct: number;
   total_bets: number;
   wins: number;
@@ -103,12 +105,16 @@ export interface BookPairSummary {
   book_key_2: string;
   opportunity_type: string;
   total_opportunities: number;
+  live_opportunities: number;      // Opportunities detected during live games
+  pregame_opportunities: number;   // Opportunities detected before game start
   avg_edge_pct: number;
   best_edge_pct: number;
   total_bets: number;
   total_profit: number;
   roi: number;
   avg_hold_time_seconds: number;
+  min_hold_time_seconds: number;   // Shortest opportunity duration
+  max_hold_time_seconds: number;   // Longest opportunity duration
   execution_rate: number;
 }
 
@@ -189,6 +195,7 @@ interface FetchOptions {
   days?: number;
   book?: string;
   type?: string;
+  game_status?: string; // "live", "upcoming", or undefined for all
   limit?: number;
 }
 
@@ -213,6 +220,7 @@ export async function fetchStatsSummary(options: FetchOptions = {}): Promise<Sta
   
   if (options.book) params.append('book', options.book);
   if (options.type) params.append('type', options.type);
+  if (options.game_status) params.append('game_status', options.game_status);
 
   const url = `${API_BASE}/api/v1/analytics/stats/summary?${params.toString()}`;
   
@@ -241,6 +249,7 @@ export async function fetchTimeSeries(options: FetchOptions = {}): Promise<TimeS
   
   if (options.book) params.append('book', options.book);
   if (options.type) params.append('type', options.type);
+  if (options.game_status) params.append('game_status', options.game_status);
 
   const url = `${API_BASE}/api/v1/analytics/stats/timeseries?${params.toString()}`;
   
@@ -269,6 +278,7 @@ export async function fetchProfitability(options: FetchOptions = {}): Promise<an
   
   if (options.book) params.append('book', options.book);
   if (options.type) params.append('type', options.type);
+  if (options.game_status) params.append('game_status', options.game_status);
 
   const url = `${API_BASE}/api/v1/analytics/stats/profitability?${params.toString()}`;
   
@@ -296,6 +306,7 @@ export async function fetchBookStats(options: FetchOptions = {}): Promise<Record
   }
   
   if (options.type) params.append('type', options.type);
+  if (options.game_status) params.append('game_status', options.game_status);
 
   const url = `${API_BASE}/api/v1/analytics/stats/books?${params.toString()}`;
   
@@ -322,6 +333,7 @@ export async function fetchEdgeDistribution(options: FetchOptions = {}): Promise
   
   if (options.book) params.append('book', options.book);
   if (options.type) params.append('type', options.type);
+  if (options.game_status) params.append('game_status', options.game_status);
 
   const url = `${API_BASE}/api/v1/analytics/edge-distribution?${params.toString()}`;
   
